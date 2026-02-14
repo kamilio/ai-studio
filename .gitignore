@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+.env.local
+.claude/
+.poe-code-ralph/
+.agents/poe-code-ralph/
