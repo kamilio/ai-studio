@@ -9,7 +9,13 @@
     "build": "tsc -p tsconfig.json && vite build",
     "lint": "eslint src",
     "test": "playwright test",
-    "generate:fixtures": "npx tsx scripts/generate-fixtures.ts"
+    "generate:fixtures": "npx tsx scripts/generate-fixtures.ts",
+    "screenshot:home": "playwright test --grep @screenshot:home",
+    "screenshot:lyrics": "playwright test --grep @screenshot:lyrics",
+    "screenshot:lyrics-list": "playwright test --grep @screenshot:lyrics-list",
+    "screenshot:songs": "playwright test --grep @screenshot:songs",
+    "screenshot:pinned": "playwright test --grep @screenshot:pinned",
+    "screenshot:settings": "playwright test --grep @screenshot:settings"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",

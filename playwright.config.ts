@@ -18,7 +18,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
+    // Always run the dev server with the mock LLM so no live API calls are made
+    command: "VITE_USE_MOCK_LLM=true npm run dev",
     url: "http://localhost:5173",
     reuseExistingServer: !process.env.CI,
     timeout: 30000,
