@@ -134,6 +134,64 @@ export const noApiKeyFixture: StorageExport = {
   songs: [],
 };
 
+/** A fixture for the Song Generator page with a lyrics entry and pre-existing songs. */
+export const songGeneratorFixture: StorageExport = {
+  settings: {
+    poeApiKey: "test-poe-api-key",
+    numSongs: 3,
+  },
+  lyricsEntries: [
+    {
+      id: "fixture-entry-songs",
+      title: "Sunday Gold",
+      style: "indie folk",
+      commentary: "A warm, reflective song about lazy Sunday mornings.",
+      body: [
+        "Golden light through curtain lace",
+        "Coffee cooling in its place",
+        "Sunday holds us soft and slow",
+        "Nowhere we need to go",
+      ].join("\n"),
+      chatHistory: [],
+      createdAt: "2026-01-05T09:00:00.000Z",
+      updatedAt: "2026-01-05T09:00:00.000Z",
+      deleted: false,
+    },
+  ],
+  songs: [
+    {
+      id: "fixture-song-gen-1",
+      lyricsEntryId: "fixture-entry-songs",
+      title: "Sunday Gold (Take 1)",
+      audioUrl:
+        "https://pfst.cf2.poecdn.net/base/audio/0d80fec33b1948741959d66bafe06da54553bfd28fb6409aac588255cc4f2714",
+      pinned: false,
+      deleted: false,
+      createdAt: "2026-01-05T09:05:00.000Z",
+    },
+    {
+      id: "fixture-song-gen-2",
+      lyricsEntryId: "fixture-entry-songs",
+      title: "Sunday Gold (Take 2)",
+      audioUrl:
+        "https://pfst.cf2.poecdn.net/base/audio/0d80fec33b1948741959d66bafe06da54553bfd28fb6409aac588255cc4f2714",
+      pinned: false,
+      deleted: false,
+      createdAt: "2026-01-05T09:06:00.000Z",
+    },
+    {
+      id: "fixture-song-gen-3",
+      lyricsEntryId: "fixture-entry-songs",
+      title: "Sunday Gold (Take 3)",
+      audioUrl:
+        "https://pfst.cf2.poecdn.net/base/audio/0d80fec33b1948741959d66bafe06da54553bfd28fb6409aac588255cc4f2714",
+      pinned: false,
+      deleted: false,
+      createdAt: "2026-01-05T09:07:00.000Z",
+    },
+  ],
+};
+
 /** A fixture with multiple lyrics entries, for testing the Lyrics List page. */
 export const multiEntryFixture: StorageExport = {
   settings: {
