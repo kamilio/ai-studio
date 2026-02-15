@@ -1,5 +1,5 @@
 /**
- * SessionView page (US-014, US-015, US-016, US-017, US-018, US-021, US-022)
+ * SessionView page (US-014, US-015, US-016, US-017, US-018, US-021, US-022, US-023)
  *
  * Route: /image/sessions/:id
  *
@@ -51,11 +51,16 @@
  * requests is fired independently. If one rejects, only that slot shows an
  * inline error card — sibling slots that succeeded render their images
  * normally. No full-page error is shown.
+ *
+ * US-023: Download image action. Each image card in the main pane has a
+ * Download button. Clicking it fetches the image as a blob and triggers a
+ * browser file download. The filename includes the session title and image
+ * index (1-based position in the current display list).
  */
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
-import { ImageIcon, Pin, Settings, Bug } from "lucide-react";
+import { ImageIcon, Pin, Settings, Bug, Download } from "lucide-react";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { Button } from "@/shared/components/ui/button";
 import { NavMenu } from "@/shared/components/NavMenu";
@@ -67,6 +72,65 @@ import type { ImageSession, ImageGeneration, ImageItem } from "@/image/lib/stora
 import { createLLMClient } from "@/shared/lib/llm/factory";
 import { getSettings } from "@/music/lib/storage/storageService";
 import { log, getAll } from "@/music/lib/actionLog";
+
+// ─── Download helper (US-023) ──────────────────────────────────────────────
+
+/**
+ * Sanitises a string for use in a filename by replacing characters that are
+ * invalid or problematic on common filesystems with a hyphen, then trimming
+ * repeated hyphens and leading/trailing whitespace.
+ */
+function sanitiseFilename(value: string): string {
+  return value
+    .replace(/[/\\?%*:|"<>]/g, "-")
+    .replace(/-+/g, "-")
+    .trim();
+}
+
+/**
+ * Triggers a browser file download for the given image URL.
+ *
+ * Strategy: fetch the image as a Blob so the browser always prompts a
+ * "Save As" dialog regardless of whether the URL is cross-origin (some
+ * browsers ignore the `download` attribute for cross-origin links). A
+ * temporary object URL is created from the Blob, clicked programmatically,
+ * then immediately revoked to avoid memory leaks.
+ *
+ * @param url     - Source image URL.
+ * @param filename - Desired filename (without extension; .png appended if
+ *                  the URL does not provide an obvious extension).
+ */
+async function downloadImage(url: string, filename: string): Promise<void> {
+  const response = await fetch(url);
+  const blob = await response.blob();
+
+  // Derive file extension from MIME type or URL, defaulting to .png.
+  let ext = ".png";
+  const mime = blob.type;
+  if (mime === "image/jpeg" || mime === "image/jpg") ext = ".jpg";
+  else if (mime === "image/gif") ext = ".gif";
+  else if (mime === "image/webp") ext = ".webp";
+  else {
+    // Fall back to the extension in the URL if present.
+    const urlExt = url.split("?")[0].split(".").pop()?.toLowerCase();
+    if (urlExt && ["jpg", "jpeg", "gif", "webp", "png"].includes(urlExt)) {
+      ext = `.${urlExt}`;
+    }
+  }
+
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = `${sanitiseFilename(filename)}${ext}`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+  } finally {
+    // Revoke after a short delay to allow the download to start.
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  }
+}
 
 // ─── Navigation items ──────────────────────────────────────────────────────
 
@@ -303,11 +367,68 @@ type SlotResult =
   | { kind: "item"; item: ImageItem }
   | { kind: "error"; message: string };
 
+// ─── ImageCard (US-023) ────────────────────────────────────────────────────
+
+interface ImageCardProps {
+  item: ImageItem;
+  /** 1-based index used to build the download filename. */
+  index: number;
+  /** Session title used to build the download filename. */
+  sessionTitle: string;
+}
+
+/**
+ * A single image card with an overlaid Download button (US-023).
+ * The button is always visible so users can easily discover it.
+ */
+function ImageCard({ item, index, sessionTitle }: ImageCardProps) {
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = useCallback(async () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    try {
+      await downloadImage(item.url, `${sessionTitle}-${index}`);
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [item.url, index, sessionTitle, isDownloading]);
+
+  return (
+    <div
+      className="relative rounded-lg overflow-hidden border bg-card shadow-sm"
+      data-testid="image-card"
+    >
+      <img
+        src={item.url}
+        alt=""
+        className="w-full h-auto block"
+        style={{ maxWidth: "320px" }}
+      />
+      <div className="absolute bottom-2 right-2">
+        <button
+          type="button"
+          onClick={() => void handleDownload()}
+          disabled={isDownloading}
+          aria-label="Download image"
+          data-testid="download-btn"
+          className="flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-xs font-medium shadow hover:bg-background transition-colors disabled:opacity-50"
+        >
+          <Download className="h-3 w-3" aria-hidden="true" />
+          {isDownloading ? "Saving…" : "Download"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── MainPane ──────────────────────────────────────────────────────────────
 
 interface MainPaneProps {
   generations: ImageGeneration[];
   items: ImageItem[];
+  /** Session title used to build download filenames (US-023). */
+  sessionTitle: string;
   /** When set, show N skeleton cards instead of the real latest images (US-021). */
   skeletonCount?: number;
   /**
@@ -325,7 +446,7 @@ interface MainPaneProps {
  * Shows per-slot error cards for failed slots (US-022).
  * Shows an empty state when no generations exist.
  */
-function MainPane({ generations, items, skeletonCount, slotResults }: MainPaneProps) {
+function MainPane({ generations, items, sessionTitle, skeletonCount, slotResults }: MainPaneProps) {
   // While generation is in-flight, show skeleton placeholders (US-021).
   if (skeletonCount !== undefined && skeletonCount > 0) {
     return (
@@ -351,18 +472,12 @@ function MainPane({ generations, items, skeletonCount, slotResults }: MainPanePr
       >
         {slotResults.map((slot, i) =>
           slot.kind === "item" ? (
-            <div
+            <ImageCard
               key={slot.item.id}
-              className="rounded-lg overflow-hidden border bg-card shadow-sm"
-              data-testid="image-card"
-            >
-              <img
-                src={slot.item.url}
-                alt=""
-                className="w-full h-auto block"
-                style={{ maxWidth: "320px" }}
-              />
-            </div>
+              item={slot.item}
+              index={i + 1}
+              sessionTitle={sessionTitle}
+            />
           ) : (
             <ErrorCard key={`error-${i}`} message={slot.message} />
           )
@@ -412,19 +527,13 @@ function MainPane({ generations, items, skeletonCount, slotResults }: MainPanePr
       className="flex flex-wrap gap-4 content-start"
       data-testid="main-pane-images"
     >
-      {latestItems.map((item) => (
-        <div
+      {latestItems.map((item, i) => (
+        <ImageCard
           key={item.id}
-          className="rounded-lg overflow-hidden border bg-card shadow-sm"
-          data-testid="image-card"
-        >
-          <img
-            src={item.url}
-            alt=""
-            className="w-full h-auto block"
-            style={{ maxWidth: "320px" }}
-          />
-        </div>
+          item={item}
+          index={i + 1}
+          sessionTitle={sessionTitle}
+        />
       ))}
     </div>
   );
@@ -616,7 +725,7 @@ export default function SessionView() {
             aria-label="Generated images"
             data-testid="main-pane"
           >
-            <MainPane generations={data.generations} items={data.items} skeletonCount={skeletonCount} slotResults={slotResults} />
+            <MainPane generations={data.generations} items={data.items} sessionTitle={data.session.title} skeletonCount={skeletonCount} slotResults={slotResults} />
           </main>
 
           {/* ── Thumbnail panel (desktop right panel) ──────────────────── */}
