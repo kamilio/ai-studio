@@ -35,10 +35,10 @@ import type React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Pencil, Plus, Zap } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
-import { ApiKeyMissingModal } from "@/music/components/ApiKeyMissingModal";
+import { ApiKeyMissingModal } from "@/shared/components/ApiKeyMissingModal";
 import { LyricsItemCard } from "@/music/components/LyricsItemCard";
-import { Toast, useToast } from "@/music/components/Toast";
-import { useApiKeyGuard } from "@/music/hooks/useApiKeyGuard";
+import { Toast, useToast } from "@/shared/components/Toast";
+import { useApiKeyGuard } from "@/shared/hooks/useApiKeyGuard";
 import {
   createMessage,
   getMessage,
