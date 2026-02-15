@@ -10,8 +10,8 @@ import PinnedSongs from "@/pages/PinnedSongs";
 import Settings from "@/pages/Settings";
 
 const navItems = [
-  { to: "/lyrics", icon: List, label: "Lyrics List" },
-  { to: "/lyrics/new", icon: Music, label: "Lyrics Generator" },
+  { to: "/lyrics", icon: List, label: "Lyrics List", end: true },
+  { to: "/lyrics/new", icon: Music, label: "Lyrics Generator", end: false },
   { to: "/songs", icon: Mic2, label: "Song Generator" },
   { to: "/pinned", icon: Pin, label: "Pinned Songs" },
   { to: "/settings", icon: SettingsIcon, label: "Settings" },
@@ -24,10 +24,11 @@ function Sidebar() {
         <Music className="h-5 w-5" />
         <span className="font-semibold text-sm">Song Builder</span>
       </div>
-      {navItems.map(({ to, icon: Icon, label }) => (
+      {navItems.map(({ to, icon: Icon, label, end }) => (
         <NavLink
           key={to}
           to={to}
+          end={end}
           className={({ isActive }) =>
             cn(
               "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",

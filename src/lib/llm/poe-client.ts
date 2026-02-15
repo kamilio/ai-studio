@@ -18,6 +18,15 @@ export class PoeLLMClient implements LLMClient {
       apiKey,
       baseURL: "https://api.poe.com/v1",
       dangerouslyAllowBrowser: true,
+      // Poe's CORS policy rejects the x-stainless-* headers that the OpenAI SDK
+      // adds automatically. Strip them before the request leaves the browser.
+      fetch: (url, init) => {
+        const headers = new Headers(init?.headers);
+        for (const key of [...headers.keys()]) {
+          if (key.startsWith("x-stainless-")) headers.delete(key);
+        }
+        return globalThis.fetch(url, { ...init, headers });
+      },
     });
   }
 

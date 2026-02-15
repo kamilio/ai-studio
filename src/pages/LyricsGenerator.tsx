@@ -25,12 +25,30 @@ import { Button } from "@/components/ui/button";
 import { ApiKeyMissingModal } from "@/components/ApiKeyMissingModal";
 import { useApiKeyGuard } from "@/hooks/useApiKeyGuard";
 import {
+  createLyricsEntry,
   getLyricsEntry,
   getSettings,
   updateLyricsEntry,
 } from "@/lib/storage/storageService";
 import type { ChatMessage, LyricsEntry } from "@/lib/storage/types";
 import { createLLMClient } from "@/lib/llm/factory";
+
+const LYRICS_SYSTEM_PROMPT = `You are a professional songwriter and lyricist. \
+Help the user write and refine song lyrics.
+
+When producing lyrics always respond in this exact format:
+
+---
+title: "Song Title"
+style: "genre / mood / instrumentation"
+commentary: "Brief note about the creative choices"
+---
+<lyrics body here>
+
+Rules:
+- No emoji of any kind
+- The YAML frontmatter block is mandatory in every reply
+- Keep language poetic and evocative`;
 
 /**
  * Parse the frontmatter + body from an LLM response string.
@@ -105,10 +123,20 @@ export default function LyricsGenerator() {
       if (!trimmed || isLoading) return;
       // Check API key first so modal shows even when there is no active entry.
       if (!guardAction()) return;
-      if (!id) return;
 
-      const currentEntry = getLyricsEntry(id);
-      if (!currentEntry) return;
+      // On /lyrics/new there is no entry yet — create one on first send.
+      let entryId = id;
+      let currentEntry = entryId ? getLyricsEntry(entryId) : null;
+      if (!entryId || !currentEntry) {
+        currentEntry = createLyricsEntry({
+          title: "",
+          style: "",
+          commentary: "",
+          body: "",
+          chatHistory: [],
+        });
+        entryId = currentEntry.id;
+      }
 
       const userMessage: ChatMessage = { role: "user", content: trimmed };
       const updatedHistory: ChatMessage[] = [
@@ -117,34 +145,46 @@ export default function LyricsGenerator() {
       ];
 
       // Persist the user message immediately so it shows before the response.
-      updateLyricsEntry(id, { chatHistory: updatedHistory });
+      updateLyricsEntry(entryId, { chatHistory: updatedHistory });
       setMessage("");
-      setRefreshCount((c) => c + 1);
+      if (id) setRefreshCount((c) => c + 1);
       setIsLoading(true);
 
       try {
         const settings = getSettings();
         const client = createLLMClient(settings?.poeApiKey ?? undefined);
-        const responseText = await client.chat(updatedHistory);
+        const responseText = await client.chat([
+          { role: "system" as const, content: LYRICS_SYSTEM_PROMPT },
+          ...updatedHistory,
+        ]);
 
         const assistantMessage: ChatMessage = {
           role: "assistant",
           content: responseText,
         };
-        const finalHistory: ChatMessage[] = [...updatedHistory, assistantMessage];
+        // Replace any previous assistant message so only the latest response is stored.
+        const finalHistory: ChatMessage[] = [
+          ...updatedHistory.filter((m) => m.role !== "assistant"),
+          assistantMessage,
+        ];
 
         // Parse frontmatter from the assistant response and update the entry.
         const parsed = parseLyricsResponse(responseText);
-        updateLyricsEntry(id, {
+        updateLyricsEntry(entryId, {
           chatHistory: finalHistory,
           ...(parsed ?? {}),
         });
       } finally {
         setIsLoading(false);
-        setRefreshCount((c) => c + 1);
+        if (id) {
+          setRefreshCount((c) => c + 1);
+        } else {
+          // Navigate to the newly created entry so the URL reflects it.
+          navigate(`/lyrics/${entryId}`, { replace: true });
+        }
       }
     },
-    [message, id, isLoading, guardAction]
+    [message, id, isLoading, guardAction, navigate]
   );
 
   function handleGenerateSongs() {
@@ -255,17 +295,23 @@ export default function LyricsGenerator() {
           {/* Message input + send */}
           <form
             onSubmit={handleSubmit}
-            className="flex gap-2"
+            className="flex gap-2 items-end"
             data-testid="chat-form"
           >
-            <input
-              type="text"
+            <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type a message…"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e as unknown as React.FormEvent);
+                }
+              }}
+              placeholder="Type a message… (Shift+Enter for newline)"
               aria-label="Chat message"
               disabled={isLoading}
-              className="flex-1 border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+              rows={3}
+              className="flex-1 border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 resize-none"
               data-testid="chat-input"
             />
             <Button type="submit" disabled={isLoading} data-testid="chat-submit">
