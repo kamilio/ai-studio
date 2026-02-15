@@ -1,7 +1,9 @@
 import { ReactNode } from "react";
-import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
-import { Music, List, Mic2, Pin, Settings as SettingsIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Music } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Breadcrumb } from "@/components/Breadcrumb";
+import { NavMenu } from "@/components/NavMenu";
 import Home from "@/pages/Home";
 import LyricsList from "@/pages/LyricsList";
 import LyricsGenerator from "@/pages/LyricsGenerator";
@@ -9,47 +11,48 @@ import SongGenerator from "@/pages/SongGenerator";
 import PinnedSongs from "@/pages/PinnedSongs";
 import Settings from "@/pages/Settings";
 
-const navItems = [
-  { to: "/lyrics", icon: List, label: "Lyrics List", end: true },
-  { to: "/lyrics/new", icon: Music, label: "Lyrics Generator", end: false },
-  { to: "/songs", icon: Mic2, label: "Song Generator" },
-  { to: "/pinned", icon: Pin, label: "Pinned Songs" },
-  { to: "/settings", icon: SettingsIcon, label: "Settings" },
-];
-
-function Sidebar() {
+/**
+ * Top bar shown on every page except Home.
+ *
+ * Left:  branding link back to /
+ * Center: breadcrumb segments
+ * Right: circular NavMenu button
+ */
+function TopBar() {
   return (
-    <nav className="flex flex-col w-56 min-h-screen border-r bg-background p-4 gap-1">
-      <div className="flex items-center gap-2 mb-6 px-2">
-        <Music className="h-5 w-5" />
-        <span className="font-semibold text-sm">Song Builder</span>
+    <header
+      className="sticky top-0 z-40 flex items-center justify-between h-12 px-4 border-b bg-background gap-4"
+      data-testid="top-bar"
+    >
+      {/* Branding */}
+      <Link
+        to="/"
+        className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity"
+        aria-label="Song Builder home"
+      >
+        <Music className="h-4 w-4" />
+        <span className="font-semibold text-sm hidden sm:inline">Song Builder</span>
+      </Link>
+
+      {/* Breadcrumbs — takes remaining space, truncates gracefully */}
+      <div className="flex-1 min-w-0 overflow-hidden">
+        <Breadcrumb />
       </div>
-      {navItems.map(({ to, icon: Icon, label, end }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={end}
-          className={({ isActive }) =>
-            cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-              isActive
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )
-          }
-        >
-          <Icon className="h-4 w-4" />
-          {label}
-        </NavLink>
-      ))}
-    </nav>
+
+      {/* Navigation menu */}
+      <NavMenu />
+    </header>
   );
 }
 
-function Layout({ children }: { children: ReactNode }) {
+/**
+ * Layout wrapper used by all non-Home pages.
+ * Renders the TopBar above the page content.
+ */
+function PageLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
+    <div className="flex flex-col min-h-screen">
+      <TopBar />
       <main className="flex-1 overflow-auto">{children}</main>
     </div>
   );
@@ -59,53 +62,64 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Home — no top bar */}
         <Route path="/" element={<Home />} />
+
+        {/* All other pages — wrapped in PageLayout with TopBar */}
         <Route
           path="/lyrics"
           element={
-            <Layout>
+            <PageLayout>
               <LyricsList />
-            </Layout>
+            </PageLayout>
           }
         />
         <Route
           path="/lyrics/new"
           element={
-            <Layout>
+            <PageLayout>
               <LyricsGenerator />
-            </Layout>
+            </PageLayout>
           }
         />
         <Route
           path="/lyrics/:id"
           element={
-            <Layout>
+            <PageLayout>
               <LyricsGenerator />
-            </Layout>
+            </PageLayout>
+          }
+        />
+        <Route
+          path="/lyrics/:id/songs"
+          element={
+            <PageLayout>
+              <SongGenerator />
+            </PageLayout>
           }
         />
         <Route
           path="/songs"
           element={
-            <Layout>
+            <PageLayout>
               <SongGenerator />
-            </Layout>
+            </PageLayout>
           }
         />
         <Route
           path="/pinned"
           element={
-            <Layout>
+            <PageLayout>
               <PinnedSongs />
-            </Layout>
+            </PageLayout>
           }
         />
         <Route
           path="/settings"
           element={
-            <Layout>
+            <PageLayout>
               <Settings />
-            </Layout>
+            </PageLayout>
           }
         />
       </Routes>
