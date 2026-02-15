@@ -68,7 +68,7 @@ export default function App() {
           }
         />
         <Route
-          path="/lyrics/:id"
+          path="/lyrics/new"
           element={
             <Layout>
               <LyricsGenerator />
@@ -76,7 +76,7 @@ export default function App() {
           }
         />
         <Route
-          path="/lyrics/new"
+          path="/lyrics/:id"
           element={
             <Layout>
               <LyricsGenerator />
