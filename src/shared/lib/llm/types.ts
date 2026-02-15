@@ -19,4 +19,11 @@ export interface LLMClient {
    * @param musicLengthMs - desired audio length in milliseconds (derived from message.duration * 1000)
    */
   generateSong(prompt: string, musicLengthMs?: number): Promise<string>;
+
+  /**
+   * Submit a text prompt to the image model and return an array of publicly-accessible image URLs.
+   * @param prompt - text description of the desired image
+   * @param count - number of images to generate in parallel (default 3)
+   */
+  generateImage(prompt: string, count?: number): Promise<string[]>;
 }

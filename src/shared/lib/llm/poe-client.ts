@@ -53,4 +53,20 @@ export class PoeLLMClient implements LLMClient {
     if (!audioUrl) throw new Error("ElevenLabs returned an empty response");
     return audioUrl;
   }
+
+  async generateImage(prompt: string, count = 3): Promise<string[]> {
+    const makeRequest = async (): Promise<string> => {
+      const response = await this.client.chat.completions.create({
+        model: "nano-banana",
+        messages: [{ role: "user", content: prompt }],
+        // @ts-expect-error extra_body is a Poe-specific extension not in the OpenAI types
+        extra_body: { image_only: true },
+      });
+      const url = response.choices[0]?.message?.content;
+      if (!url) throw new Error("nano-banana returned an empty response");
+      return url;
+    };
+
+    return Promise.all(Array.from({ length: count }, makeRequest));
+  }
 }

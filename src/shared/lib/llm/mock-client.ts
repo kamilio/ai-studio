@@ -42,4 +42,10 @@ export class MockLLMClient implements LLMClient {
     const parsed = JSON.parse(songFixtureRaw) as { audioUrl: string };
     return parsed.audioUrl;
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async generateImage(_prompt: string, _count = 3): Promise<string[]> {
+    await this.delay();
+    return [];
+  }
 }
