@@ -22,7 +22,7 @@
  */
 
 import { useCallback, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ApiKeyMissingModal } from "@/components/ApiKeyMissingModal";
 import { useApiKeyGuard } from "@/hooks/useApiKeyGuard";
@@ -60,8 +60,10 @@ interface SongSlot {
 }
 
 export default function SongGenerator() {
+  // Support both /lyrics/:id/songs (route param) and /songs?messageId=... (legacy query param).
+  const { id: routeId } = useParams<{ id?: string }>();
   const [searchParams] = useSearchParams();
-  const messageId = searchParams.get("messageId");
+  const messageId = routeId ?? searchParams.get("messageId");
 
   const { isModalOpen, guardAction, closeModal } = useApiKeyGuard();
 

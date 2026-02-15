@@ -1,19 +1,22 @@
 /**
- * LyricsGenerator page (US-009 + US-010).
+ * LyricsGenerator page (US-004 / US-009 / US-010).
  *
- * Split-panel layout:
- *   Left panel  – YAML frontmatter (title, style, commentary) + lyrics body
- *   Right panel – scrollable chat message history + text input / send button
+ * Route: /lyrics/:messageId
  *
- * A "Generate Songs" button at the bottom navigates to the Song Generator for
- * the current message, passing the message id as a `?messageId=` query parameter.
+ * On load: getAncestors(messageId) → render path top-down in the chat panel.
+ * The left panel shows the latest assistant message's lyrics fields.
+ * Submitting a message: createMessage (user, parentId = current messageId),
+ * call llmClient.chat() with the ancestor path as history, createMessage
+ * (assistant), navigate to /lyrics/:newAssistantId.
+ *
+ * Layout:
+ *   Desktop (≥ 768px): side-by-side split panels (lyrics left, chat right).
+ *   Mobile (< 768px):  tab bar "Lyrics" | "Chat" replaces the side-by-side
+ *                       panels; the chat input is fixed at the bottom when
+ *                       the Chat tab is active.
  *
  * For `/lyrics/new` the page has no message yet; empty-state messages are shown.
  * For `/lyrics/:id` the message is read from localStorage.
- *
- * Chat submission: calls createLLMClient().chat() with the full ancestor path
- * as history, parses the frontmatter from the response, persists a new assistant
- * Message to localStorage, then navigates to the new message.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -89,15 +92,40 @@ function parseLyricsResponse(text: string): {
   };
 }
 
+/** Format a duration in seconds as M:SS (e.g. 185 → "3:05"). */
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/**
+ * Returns true when window.innerWidth < 768px.
+ * Re-evaluates on every resize so the layout switches live.
+ */
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  return isMobile;
+}
+
 export default function LyricsGenerator() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isModalOpen, guardAction, closeModal } = useApiKeyGuard();
+  const isMobile = useIsMobile();
 
   const [userInput, setUserInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   // Refresh counter: incrementing it causes message to be re-read from storage.
   const [refreshCount, setRefreshCount] = useState(0);
+  // Mobile tab state: "lyrics" | "chat"
+  const [activeTab, setActiveTab] = useState<"lyrics" | "chat">("lyrics");
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Current assistant message (the one whose lyrics are shown in the left panel).
@@ -187,138 +215,225 @@ export default function LyricsGenerator() {
 
   function handleGenerateSongs() {
     if (!id) return;
-    navigate(`/songs?messageId=${id}`);
+    navigate(`/lyrics/${id}/songs`);
   }
+
+  /** Left panel: frontmatter + lyrics body. */
+  const LyricsPanel = (
+    <section
+      className="flex flex-col overflow-auto p-6 flex-1 min-h-0"
+      aria-label="Lyrics"
+      data-testid="lyrics-panel"
+    >
+      <h2 className="text-lg font-semibold mb-4">Lyrics</h2>
+      {latestAssistant ? (
+        <>
+          {/* Frontmatter block */}
+          <div
+            className="mb-4 rounded-md bg-muted p-4 font-mono text-sm"
+            data-testid="lyrics-frontmatter"
+          >
+            <p>
+              <span className="text-muted-foreground">title:</span>{" "}
+              <span data-testid="lyrics-title">{latestAssistant.title}</span>
+            </p>
+            <p>
+              <span className="text-muted-foreground">style:</span>{" "}
+              <span data-testid="lyrics-style">{latestAssistant.style}</span>
+            </p>
+            <p>
+              <span className="text-muted-foreground">commentary:</span>{" "}
+              <span data-testid="lyrics-commentary">{latestAssistant.commentary}</span>
+            </p>
+            {latestAssistant.duration !== undefined && (
+              <p>
+                <span className="text-muted-foreground">duration:</span>{" "}
+                <span data-testid="lyrics-duration">
+                  {formatDuration(latestAssistant.duration)}
+                </span>
+              </p>
+            )}
+          </div>
+          {/* Lyrics body */}
+          <pre
+            className="font-mono text-sm whitespace-pre-wrap flex-1"
+            data-testid="lyrics-body"
+          >
+            {latestAssistant.lyricsBody}
+          </pre>
+        </>
+      ) : (
+        <p className="text-muted-foreground text-sm" data-testid="lyrics-empty">
+          {id
+            ? "Message not found."
+            : "Select or create a lyrics entry to get started."}
+        </p>
+      )}
+    </section>
+  );
+
+  /** Chat history list. */
+  const ChatHistory = (
+    <div
+      className="flex-1 overflow-y-auto space-y-3 mb-4"
+      data-testid="chat-history"
+      aria-live="polite"
+    >
+      {ancestorPath.length === 0 ? (
+        <p className="text-muted-foreground text-sm" data-testid="chat-empty">
+          No messages yet. Ask Claude to write or refine your lyrics.
+        </p>
+      ) : (
+        ancestorPath.map((msg) => (
+          <div
+            key={msg.id}
+            className={`rounded-md px-3 py-2 text-sm max-w-[85%] ${
+              msg.role === "user"
+                ? "ml-auto bg-primary text-primary-foreground"
+                : "bg-muted"
+            }`}
+            data-testid={`chat-message-${msg.role}`}
+          >
+            {msg.content}
+          </div>
+        ))
+      )}
+      {isLoading && (
+        <div
+          className="rounded-md px-3 py-2 text-sm max-w-[85%] bg-muted animate-pulse"
+          data-testid="chat-loading"
+          aria-label="Claude is thinking…"
+        >
+          Claude is thinking…
+        </div>
+      )}
+      <div ref={chatEndRef} />
+    </div>
+  );
+
+  /** Chat input form. */
+  const ChatForm = (
+    <form
+      onSubmit={handleSubmit}
+      className="flex gap-2 items-end"
+      data-testid="chat-form"
+    >
+      <textarea
+        value={userInput}
+        onChange={(e) => setUserInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSubmit(e as unknown as React.FormEvent);
+          }
+        }}
+        placeholder="Type a message… (Shift+Enter for newline)"
+        aria-label="Chat message"
+        disabled={isLoading}
+        rows={3}
+        className="flex-1 border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 resize-none"
+        data-testid="chat-input"
+      />
+      <Button type="submit" disabled={isLoading} data-testid="chat-submit">
+        {isLoading ? "Sending…" : "Send"}
+      </Button>
+    </form>
+  );
+
+  /** Right panel: chat history + input. */
+  const ChatPanel = (
+    <section
+      className="flex flex-col overflow-hidden p-6 flex-1 min-h-0"
+      aria-label="Chat"
+      data-testid="chat-panel"
+    >
+      <h2 className="text-lg font-semibold mb-4">Chat</h2>
+      {ChatHistory}
+      {ChatForm}
+    </section>
+  );
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* ── Page header ──────────────────────────────────────────────────── */}
-      <div className="border-b px-6 py-4">
-        <h1 className="text-2xl font-bold">Lyrics Generator</h1>
-      </div>
-
-      {/* ── Main split panel ─────────────────────────────────────────────── */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Left panel – frontmatter + lyrics body */}
-        <section
-          className="w-1/2 border-r flex flex-col overflow-auto p-6"
-          aria-label="Lyrics frontmatter"
-          data-testid="lyrics-panel"
-        >
-          <h2 className="text-lg font-semibold mb-4">Lyrics</h2>
-          {latestAssistant ? (
-            <>
-              {/* Frontmatter block */}
-              <div
-                className="mb-4 rounded-md bg-muted p-4 font-mono text-sm"
-                data-testid="lyrics-frontmatter"
-              >
-                <p>
-                  <span className="text-muted-foreground">title:</span>{" "}
-                  <span data-testid="lyrics-title">{latestAssistant.title}</span>
-                </p>
-                <p>
-                  <span className="text-muted-foreground">style:</span>{" "}
-                  <span data-testid="lyrics-style">{latestAssistant.style}</span>
-                </p>
-                <p>
-                  <span className="text-muted-foreground">commentary:</span>{" "}
-                  <span data-testid="lyrics-commentary">{latestAssistant.commentary}</span>
-                </p>
-              </div>
-              {/* Lyrics body */}
-              <pre
-                className="font-mono text-sm whitespace-pre-wrap flex-1"
-                data-testid="lyrics-body"
-              >
-                {latestAssistant.lyricsBody}
-              </pre>
-            </>
-          ) : (
-            <p className="text-muted-foreground text-sm" data-testid="lyrics-empty">
-              {id
-                ? "Message not found."
-                : "Select or create a lyrics entry to get started."}
-            </p>
-          )}
-        </section>
-
-        {/* Right panel – chat history + input */}
-        <section
-          className="w-1/2 flex flex-col overflow-hidden p-6"
-          aria-label="Chat interface"
-          data-testid="chat-panel"
-        >
-          <h2 className="text-lg font-semibold mb-4">Chat</h2>
-
-          {/* Scrollable message history */}
+      {isMobile ? (
+        <>
+          {/* ── Mobile: tab bar + active tab panel ─────────────────────── */}
           <div
-            className="flex-1 overflow-y-auto space-y-3 mb-4"
-            data-testid="chat-history"
-            aria-live="polite"
+            className="flex border-b shrink-0"
+            data-testid="mobile-tab-bar"
+            role="tablist"
+            aria-label="Editor panels"
           >
-            {ancestorPath.length === 0 ? (
-              <p className="text-muted-foreground text-sm" data-testid="chat-empty">
-                No messages yet. Ask Claude to write or refine your lyrics.
-              </p>
-            ) : (
-              ancestorPath.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`rounded-md px-3 py-2 text-sm max-w-[85%] ${
-                    msg.role === "user"
-                      ? "ml-auto bg-primary text-primary-foreground"
-                      : "bg-muted"
-                  }`}
-                  data-testid={`chat-message-${msg.role}`}
-                >
-                  {msg.content}
-                </div>
-              ))
-            )}
-            {isLoading && (
-              <div
-                className="rounded-md px-3 py-2 text-sm max-w-[85%] bg-muted animate-pulse"
-                data-testid="chat-loading"
-                aria-label="Claude is thinking…"
-              >
-                Claude is thinking…
-              </div>
-            )}
-            <div ref={chatEndRef} />
+            <button
+              role="tab"
+              aria-selected={activeTab === "lyrics"}
+              aria-controls="lyrics-tab-panel"
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                activeTab === "lyrics"
+                  ? "border-b-2 border-primary text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setActiveTab("lyrics")}
+              data-testid="tab-lyrics"
+            >
+              Lyrics
+            </button>
+            <button
+              role="tab"
+              aria-selected={activeTab === "chat"}
+              aria-controls="chat-tab-panel"
+              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                activeTab === "chat"
+                  ? "border-b-2 border-primary text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setActiveTab("chat")}
+              data-testid="tab-chat"
+            >
+              Chat
+            </button>
           </div>
 
-          {/* Message input + send */}
-          <form
-            onSubmit={handleSubmit}
-            className="flex gap-2 items-end"
-            data-testid="chat-form"
+          {/* Active tab content */}
+          <div
+            id={activeTab === "lyrics" ? "lyrics-tab-panel" : "chat-tab-panel"}
+            role="tabpanel"
+            className="flex flex-col flex-1 min-h-0 overflow-hidden"
           >
-            <textarea
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSubmit(e as unknown as React.FormEvent);
-                }
-              }}
-              placeholder="Type a message… (Shift+Enter for newline)"
-              aria-label="Chat message"
-              disabled={isLoading}
-              rows={3}
-              className="flex-1 border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 resize-none"
-              data-testid="chat-input"
-            />
-            <Button type="submit" disabled={isLoading} data-testid="chat-submit">
-              {isLoading ? "Sending…" : "Send"}
-            </Button>
-          </form>
-        </section>
-      </div>
+            {activeTab === "lyrics" ? (
+              LyricsPanel
+            ) : (
+              <section
+                className="flex flex-col overflow-hidden p-4 pb-0 flex-1 min-h-0"
+                aria-label="Chat"
+                data-testid="chat-panel"
+              >
+                <h2 className="text-lg font-semibold mb-4">Chat</h2>
+                {ChatHistory}
+                {/* Chat input pinned to bottom of viewport on mobile */}
+                <div className="sticky bottom-0 bg-background pt-2 pb-4 shrink-0">
+                  {ChatForm}
+                </div>
+              </section>
+            )}
+          </div>
+        </>
+      ) : (
+        /* ── Desktop: side-by-side split panels ─────────────────────────── */
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          {/* Left panel */}
+          <div className="w-1/2 border-r flex flex-col overflow-hidden">
+            {LyricsPanel}
+          </div>
+          {/* Right panel */}
+          <div className="w-1/2 flex flex-col overflow-hidden">
+            {ChatPanel}
+          </div>
+        </div>
+      )}
 
       {/* ── Bottom bar ───────────────────────────────────────────────────── */}
-      <div className="border-t p-4 flex justify-end">
+      <div className="border-t p-4 flex justify-end shrink-0">
         <Button
           onClick={handleGenerateSongs}
           disabled={!id}

@@ -21,7 +21,7 @@
 import { test, expect } from "@playwright/test";
 import { seedFixture } from "./helpers/seed";
 import { screenshotPage } from "./helpers/screenshot";
-import { baseFixture } from "../fixtures/index";
+import { baseFixture, multiMessageFixture } from "../fixtures/index";
 
 test.describe("Lyrics Generator page", () => {
   test.beforeEach(async ({ page }) => {
@@ -88,7 +88,7 @@ test.describe("Lyrics Generator page", () => {
     page,
   }) => {
     await page.getByTestId("generate-songs-btn").click();
-    await expect(page).toHaveURL(/\/songs\?messageId=fixture-msg-1a/);
+    await expect(page).toHaveURL(/\/lyrics\/fixture-msg-1a\/songs/);
   });
 });
 
@@ -220,5 +220,174 @@ test.describe("Lyrics Generator – chat integration (US-010)", () => {
 
     // After response, inputs are re-enabled.
     await expect(input).not.toBeDisabled({ timeout: 5000 });
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// US-004: Lyrics Editor core rebuild (tree traversal, /lyrics/:messageId)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * US-004 acceptance criteria: navigating to an intermediate messageId shows
+ * only the ancestor path up to (and including) that message, not messages
+ * that came after it in the tree.
+ *
+ * multiMessageFixture tree (root-first):
+ *   fixture-multi-msg-1u  → user: "Write a synthwave song…"
+ *   fixture-multi-msg-1a  → assistant: "City Pulse"
+ *   fixture-multi-msg-2u  → user: "Make it darker…"
+ *   fixture-multi-msg-2a  → assistant: "Dark Frequency"
+ *   fixture-multi-msg-3u  → user: "Add a neon rain motif…"
+ *   fixture-multi-msg-3a  → assistant: "Neon Rain" (latest leaf)
+ *
+ * Navigating to fixture-multi-msg-2a (Dark Frequency) should show messages
+ * 1u, 1a, 2u, 2a but NOT 3u or 3a.
+ */
+test.describe("Lyrics Generator – US-004: tree traversal and ancestor path", () => {
+  test("navigating to an intermediate messageId shows only ancestor path (not later messages)", async ({
+    page,
+  }) => {
+    await seedFixture(page, multiMessageFixture);
+    // Navigate to the second assistant message (Dark Frequency), not the latest leaf.
+    await page.goto("/lyrics/fixture-multi-msg-2a");
+
+    // Left panel should show Dark Frequency (the latest assistant in the path up to 2a).
+    await expect(page.getByTestId("lyrics-title")).toContainText("Dark Frequency");
+
+    // Chat history should contain the 4 messages in the ancestor path.
+    const userMsgs = page.getByTestId("chat-message-user");
+    const assistantMsgs = page.getByTestId("chat-message-assistant");
+
+    // Two user messages: 1u and 2u
+    await expect(userMsgs).toHaveCount(2);
+    await expect(userMsgs.first()).toContainText("Write a synthwave song about a rainy city night");
+    await expect(userMsgs.last()).toContainText("Make it darker and more cinematic");
+
+    // Two assistant messages: 1a and 2a
+    await expect(assistantMsgs).toHaveCount(2);
+    await expect(assistantMsgs.last()).toContainText("Dark Frequency");
+
+    // The later messages (3u "Add a neon rain motif" and 3a "Neon Rain") must NOT appear.
+    const allMessages = page.getByTestId("chat-history");
+    await expect(allMessages).not.toContainText("Add a neon rain motif");
+    await expect(allMessages).not.toContainText("Neon Rain");
+  });
+
+  test("navigating to the latest leaf shows all ancestor messages", async ({
+    page,
+  }) => {
+    await seedFixture(page, multiMessageFixture);
+    // Navigate to the latest leaf (Neon Rain).
+    await page.goto("/lyrics/fixture-multi-msg-3a");
+
+    // Left panel shows Neon Rain.
+    await expect(page.getByTestId("lyrics-title")).toContainText("Neon Rain");
+
+    // All 6 messages in the ancestor path should be visible.
+    const userMsgs = page.getByTestId("chat-message-user");
+    const assistantMsgs = page.getByTestId("chat-message-assistant");
+
+    await expect(userMsgs).toHaveCount(3);
+    await expect(assistantMsgs).toHaveCount(3);
+  });
+
+  test("left panel shows duration when the latest assistant message has one", async ({
+    page,
+  }) => {
+    // Seed a fixture where the assistant message has a duration.
+    const fixtureWithDuration = {
+      ...baseFixture,
+      messages: [
+        ...baseFixture.messages.map((m) =>
+          m.id === "fixture-msg-1a" ? { ...m, duration: 185 } : m
+        ),
+      ],
+    };
+    await seedFixture(page, fixtureWithDuration);
+    await page.goto("/lyrics/fixture-msg-1a");
+
+    // Duration should be displayed as M:SS.
+    await expect(page.getByTestId("lyrics-duration")).toContainText("3:05");
+  });
+
+  test("submitting a chat message creates user+assistant messages with correct parentIds", async ({
+    page,
+  }) => {
+    await seedFixture(page, baseFixture);
+    await page.goto("/lyrics/fixture-msg-1a");
+
+    await page.getByTestId("chat-input").fill("More cowbell");
+    await page.getByTestId("chat-submit").click();
+
+    // Wait for navigation to new assistant message URL.
+    await expect(page).not.toHaveURL(/fixture-msg-1a$/, { timeout: 5000 });
+    await expect(page).toHaveURL(/\/lyrics\/.+/, { timeout: 5000 });
+
+    // Get the new message ID from the URL.
+    const newUrl = page.url();
+    const newMsgId = newUrl.split("/lyrics/")[1];
+
+    // Verify storage: new assistant message has a user message parent,
+    // and that user message has fixture-msg-1a as its parent.
+    const messages = await page.evaluate(() => {
+      const stored = localStorage.getItem("song-builder:messages");
+      return stored ? (JSON.parse(stored) as Array<{ id: string; role: string; parentId: string | null }>) : [];
+    });
+
+    const assistantMsg = messages.find((m) => m.id === newMsgId);
+    expect(assistantMsg).toBeDefined();
+    expect(assistantMsg!.role).toBe("assistant");
+
+    const userMsg = messages.find((m) => m.id === assistantMsg!.parentId);
+    expect(userMsg).toBeDefined();
+    expect(userMsg!.role).toBe("user");
+    expect(userMsg!.parentId).toBe("fixture-msg-1a");
+  });
+
+  test("reloading the page at /lyrics/:messageId preserves the view", async ({
+    page,
+  }) => {
+    await seedFixture(page, multiMessageFixture);
+    await page.goto("/lyrics/fixture-multi-msg-2a");
+
+    // Verify the left panel is showing Dark Frequency.
+    await expect(page.getByTestId("lyrics-title")).toContainText("Dark Frequency");
+
+    // Reload and verify the view is preserved.
+    await page.reload();
+    await expect(page.getByTestId("lyrics-title")).toContainText("Dark Frequency");
+    await expect(page.getByTestId("chat-message-user")).toHaveCount(2);
+  });
+
+  test("Generate Songs navigates to /lyrics/:id/songs", async ({ page }) => {
+    await seedFixture(page, baseFixture);
+    await page.goto("/lyrics/fixture-msg-1a");
+
+    await page.getByTestId("generate-songs-btn").click();
+    await expect(page).toHaveURL(/\/lyrics\/fixture-msg-1a\/songs/);
+  });
+
+  test("mobile tab bar is visible and switches between Lyrics and Chat panels", async ({
+    page,
+  }) => {
+    // Resize to mobile viewport.
+    await page.setViewportSize({ width: 375, height: 812 });
+    await seedFixture(page, baseFixture);
+    await page.goto("/lyrics/fixture-msg-1a");
+
+    // Mobile tab bar should be visible.
+    await expect(page.getByTestId("mobile-tab-bar")).toBeVisible();
+
+    // Lyrics tab is active by default; Lyrics panel should be visible.
+    await expect(page.getByTestId("tab-lyrics")).toBeVisible();
+    await expect(page.getByTestId("tab-chat")).toBeVisible();
+
+    // Lyrics panel content should be visible (first match).
+    await expect(page.getByTestId("lyrics-title").first()).toContainText("Coffee Dreams");
+
+    // Switch to Chat tab.
+    await page.getByTestId("tab-chat").click();
+    await expect(page.getByTestId("chat-input")).toBeVisible();
+    await expect(page.getByTestId("chat-history")).toBeVisible();
   });
 });
