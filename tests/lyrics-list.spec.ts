@@ -1,12 +1,14 @@
 /**
- * Tests for US-008: Lyrics List page.
+ * Tests for US-009: Lyrics List page (tree-aware, song count column).
  *
  * Verifies that:
- * - Table lists all non-deleted entries with title and style columns
+ * - Table lists all non-deleted assistant messages with title, style, song count, date
+ * - Song count column shows correct count (non-deleted songs per messageId)
  * - Text search filters by title or style in real time
- * - Clicking a row navigates to the Lyrics Generator for that entry
- * - "New Lyrics" button creates a blank entry and navigates to the generator
- * - Soft-delete removes the entry from the table
+ * - Clicking a row navigates to /lyrics/:messageId
+ * - "New Lyrics" button navigates to /lyrics/new
+ * - Soft-delete removes the entry from the table; reload — row still absent
+ * - Style column hidden on mobile (<768px)
  * - Screenshot test with seeded fixture data
  *
  * State is seeded via storageService.import() — the same code path as the
@@ -52,6 +54,17 @@ test.describe("Lyrics List page", () => {
     await expect(
       page.getByRole("cell", { name: "Deleted Entry", exact: true })
     ).not.toBeVisible();
+  });
+
+  test("song count column shows correct count per messageId", async ({
+    page,
+  }) => {
+    // Morning Pop has 2 non-deleted songs (1 deleted doesn't count)
+    // The song count cell has aria-label "N songs"
+    await expect(page.getByRole("cell", { name: "2 songs" })).toBeVisible();
+
+    // Midnight Jazz has 0 songs
+    await expect(page.getByRole("cell", { name: "0 songs" })).toBeVisible();
   });
 
   test("search filters entries by title in real time", async ({ page }) => {
@@ -127,6 +140,30 @@ test.describe("Lyrics List page", () => {
     expect((deleted as { deleted: boolean }).deleted).toBe(true);
   });
 
+  test("soft-delete persists after page reload — row still absent", async ({
+    page,
+  }) => {
+    // Delete Morning Pop
+    await page
+      .getByRole("button", { name: "Delete Morning Pop" })
+      .click();
+
+    await expect(
+      page.getByRole("cell", { name: "Morning Pop", exact: true })
+    ).not.toBeVisible();
+
+    // Reload the page
+    await page.reload();
+
+    // Morning Pop still absent after reload
+    await expect(
+      page.getByRole("cell", { name: "Morning Pop", exact: true })
+    ).not.toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: "Midnight Jazz", exact: true })
+    ).toBeVisible();
+  });
+
   test("New Lyrics button navigates to /lyrics/new", async ({
     page,
   }) => {
@@ -142,6 +179,24 @@ test.describe("Lyrics List page", () => {
     await expect(
       page.getByText(/Click "New Lyrics" to get started/)
     ).toBeVisible();
+  });
+
+  test("style column hidden on mobile (375x812)", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+
+    // Rows still show title
+    await expect(
+      page.getByRole("cell", { name: "Morning Pop", exact: true })
+    ).toBeVisible();
+
+    // Style column header should not be visible on mobile
+    const styleHeader = page.getByRole("columnheader", { name: "Style" });
+    await expect(styleHeader).toBeHidden();
+
+    // Style cell values should also be hidden
+    await expect(
+      page.getByRole("cell", { name: "pop", exact: true })
+    ).toBeHidden();
   });
 });
 
@@ -185,3 +240,20 @@ test("Lyrics List: single entry fixture - row click navigates correctly", async 
     .click();
   await expect(page).toHaveURL(/\/lyrics\/fixture-msg-1a$/);
 });
+
+test(
+  "@screenshot:lyrics-list-mobile lyrics list at 375x812 hides style column",
+  async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await screenshotPage(page, "/lyrics", multiEntryFixture, {
+      path: "screenshots/lyrics-list-mobile.png",
+    });
+
+    // Rows visible but style column header hidden
+    await expect(
+      page.getByRole("cell", { name: "Morning Pop", exact: true })
+    ).toBeVisible();
+    const styleHeader = page.getByRole("columnheader", { name: "Style" });
+    await expect(styleHeader).toBeHidden();
+  }
+);

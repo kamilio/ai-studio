@@ -1,5 +1,5 @@
 /**
- * Lyrics List page (US-008 / US-009).
+ * Lyrics List page (US-009).
  *
  * Displays all non-deleted assistant messages (lyrics versions) in a searchable table.
  * Users can:
@@ -7,6 +7,9 @@
  *  - Click a row to open the Lyrics Generator for that message
  *  - Click "New Lyrics" to navigate to /lyrics/new
  *  - Soft-delete a message (sets deleted=true, hides from table)
+ *
+ * Columns: title, style (hidden on mobile <768px), song count, created date, actions.
+ * Song count reflects non-deleted songs for each messageId.
  */
 
 import React from "react";
@@ -15,20 +18,48 @@ import { Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   getMessages,
+  getSongs,
   updateMessage,
 } from "@/lib/storage/storageService";
 import type { Message } from "@/lib/storage/types";
 
+function formatDate(isoString: string): string {
+  const d = new Date(isoString);
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export default function LyricsList() {
   const navigate = useNavigate();
+
   // Only show non-deleted assistant messages (which carry lyrics fields).
   const [allEntries, setAllEntries] = React.useState<Message[]>(
     () => getMessages().filter((m) => m.role === "assistant" && !m.deleted)
+  );
+  // Song count map: messageId → count of non-deleted songs
+  const [songCounts, setSongCounts] = React.useState<Map<string, number>>(
+    () => {
+      const songs = getSongs().filter((s) => !s.deleted);
+      const counts = new Map<string, number>();
+      for (const s of songs) {
+        counts.set(s.messageId, (counts.get(s.messageId) ?? 0) + 1);
+      }
+      return counts;
+    }
   );
   const [search, setSearch] = React.useState("");
 
   function reloadEntries() {
     setAllEntries(getMessages().filter((m) => m.role === "assistant" && !m.deleted));
+    const songs = getSongs().filter((s) => !s.deleted);
+    const counts = new Map<string, number>();
+    for (const s of songs) {
+      counts.set(s.messageId, (counts.get(s.messageId) ?? 0) + 1);
+    }
+    setSongCounts(counts);
   }
 
   const filtered = search.trim()
@@ -91,8 +122,15 @@ export default function LyricsList() {
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">
                   Title
                 </th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">
+                {/* Style column hidden on mobile (<768px) */}
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">
                   Style
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">
+                  Songs
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">
+                  Created
                 </th>
                 <th className="px-4 py-3 w-12" aria-label="Actions" />
               </tr>
@@ -113,8 +151,18 @@ export default function LyricsList() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">
+                  {/* Style column hidden on mobile (<768px) */}
+                  <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
                     {entry.style || <span className="italic">—</span>}
+                  </td>
+                  <td
+                    className="px-4 py-3 text-muted-foreground"
+                    aria-label={`${songCounts.get(entry.id) ?? 0} songs`}
+                  >
+                    {songCounts.get(entry.id) ?? 0}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
+                    {formatDate(entry.createdAt)}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button

@@ -583,6 +583,11 @@ export const fullFixture: StorageExport = {
 /**
  * A fixture with multiple independent conversations (assistant messages),
  * for testing the Lyrics List page. Includes a soft-deleted entry.
+ *
+ * Song counts (non-deleted):
+ *   Morning Pop (fixture-multi-entry-1a) → 2 songs
+ *   Midnight Jazz (fixture-multi-entry-2a) → 0 songs
+ *   Deleted Entry (fixture-multi-entry-3a) → soft-deleted message; not shown
  */
 export const multiEntryFixture: StorageExport = {
   settings: {
@@ -654,5 +659,35 @@ export const multiEntryFixture: StorageExport = {
       deleted: true,
     },
   ],
-  songs: [],
+  songs: [
+    // 2 non-deleted songs for Morning Pop
+    {
+      id: "fixture-multi-entry-song-1",
+      messageId: "fixture-multi-entry-1a",
+      title: "Morning Pop (Take 1)",
+      audioUrl: "https://example.com/morning-pop-1.mp3",
+      pinned: false,
+      deleted: false,
+      createdAt: "2026-01-04T07:10:00.000Z",
+    },
+    {
+      id: "fixture-multi-entry-song-2",
+      messageId: "fixture-multi-entry-1a",
+      title: "Morning Pop (Take 2)",
+      audioUrl: "https://example.com/morning-pop-2.mp3",
+      pinned: false,
+      deleted: false,
+      createdAt: "2026-01-04T07:11:00.000Z",
+    },
+    // 1 soft-deleted song for Morning Pop (should NOT count)
+    {
+      id: "fixture-multi-entry-song-3",
+      messageId: "fixture-multi-entry-1a",
+      title: "Morning Pop (Take 3)",
+      audioUrl: "https://example.com/morning-pop-3.mp3",
+      pinned: false,
+      deleted: true,
+      createdAt: "2026-01-04T07:12:00.000Z",
+    },
+  ],
 };
