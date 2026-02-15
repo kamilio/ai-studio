@@ -1,27 +1,27 @@
 /**
- * SongGenerator page (US-011 / US-012).
+ * SongGenerator page (US-008).
  *
- * Reads the `?messageId=` query parameter to determine which assistant message
- * (lyrics version) is currently open. Triggers N parallel calls to
- * llmClient.generateSong() where N comes from settings.numSongs (default 3).
- * Each call receives a style prompt derived from the message's lyrics fields.
- * Generated songs are persisted to localStorage via storageService.createSong()
- * and rendered as list items with an inline HTML5 audio player.
+ * Route: /lyrics/:messageId/songs
+ * Also accepts legacy /songs?messageId=... query param for backwards compat.
  *
- * A per-song loading indicator is shown while each request is in flight, so
- * the user sees N skeleton rows immediately after clicking "Generate Songs".
+ * Reads the messageId to determine which assistant message (lyrics version) to
+ * generate songs for. Triggers N parallel calls to llmClient.generateSong()
+ * where N comes from settings.numSongs (default 3).
  *
- * The API key guard (useApiKeyGuard) blocks generation when no key is set,
- * matching the behaviour of the Lyrics Generator chat panel (US-007).
+ * music_length_ms is derived from message.duration * 1000 so the generated
+ * audio matches the intended duration set in the Lyrics Editor.
  *
- * Per-song actions (US-012):
- *   - Play: inline HTML5 audio player (always visible)
- *   - Pin: sets song.pinned = true in localStorage
- *   - Delete: sets song.deleted = true in localStorage; hides song from list
- *   - Download: fetches the audio URL and triggers the browser's native save dialog
+ * State model: Map<songId, SongState> so that each card update only touches
+ * its own entry — sibling cards are not re-rendered when one slot completes
+ * (React.memo ensures this guarantee at the component level).
+ *
+ * Stable song IDs are pre-generated (crypto.randomUUID) before any async work
+ * begins, giving each Map entry a stable key for the lifetime of the request.
+ *
+ * Per-song actions: Pin, Delete, Download.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ApiKeyMissingModal } from "@/components/ApiKeyMissingModal";
@@ -48,9 +48,7 @@ function buildStylePrompt(message: Message): string {
 }
 
 /** State for a single in-progress or completed song generation slot. */
-interface SongSlot {
-  /** Slot index (0-based). Used as a stable React key while loading. */
-  index: number;
+interface SongState {
   /** Whether this slot is still awaiting a response. */
   loading: boolean;
   /** The persisted Song record once the response arrives; null while loading. */
@@ -85,7 +83,12 @@ export default function SongGenerator() {
   // Songs added during the current page session (before a reload).
   const [newSongs, setNewSongs] = useState<Song[]>([]);
 
-  const [slots, setSlots] = useState<SongSlot[]>([]);
+  /**
+   * Map<songId, SongState> for in-flight generation slots.
+   * Pre-generated stable IDs are used as keys so only the relevant entry is
+   * updated when a slot resolves — React.memo prevents sibling card re-renders.
+   */
+  const [slots, setSlots] = useState<Map<string, SongState>>(new Map());
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Local overrides for pin/delete state applied during this session.
@@ -111,23 +114,26 @@ export default function SongGenerator() {
     const settings = getSettings();
     const n = settings?.numSongs ?? 3;
     const prompt = buildStylePrompt(message);
+    // Derive duration: message.duration (seconds) → music_length_ms
+    const musicLengthMs =
+      message.duration != null ? message.duration * 1000 : undefined;
 
-    // Build N loading slots immediately so the UI shows placeholders.
-    const initialSlots: SongSlot[] = Array.from({ length: n }, (_, i) => ({
-      index: i,
-      loading: true,
-      song: null,
-      error: null,
-    }));
+    // Pre-generate stable IDs for each slot so the Map has keys before async work.
+    const slotIds = Array.from({ length: n }, () => crypto.randomUUID());
+
+    // Build initial Map with all slots in loading state.
+    const initialSlots = new Map<string, SongState>(
+      slotIds.map((id) => [id, { loading: true, song: null, error: null }])
+    );
     setSlots(initialSlots);
     setIsGenerating(true);
 
     const client = createLLMClient(settings?.poeApiKey ?? undefined);
 
     // Launch N concurrent generation requests.
-    const promises = Array.from({ length: n }, async (_, i) => {
+    const promises = slotIds.map(async (slotId, i) => {
       try {
-        const audioUrl = await client.generateSong(prompt);
+        const audioUrl = await client.generateSong(prompt, musicLengthMs);
         const songNumber = i + 1;
         const song = createSong({
           messageId,
@@ -135,31 +141,28 @@ export default function SongGenerator() {
           audioUrl,
         });
 
-        setSlots((prev) =>
-          prev.map((slot) =>
-            slot.index === i
-              ? { ...slot, loading: false, song, error: null }
-              : slot
-          )
-        );
+        // Update only this slot's entry in the Map — siblings are unaffected.
+        setSlots((prev) => {
+          const next = new Map(prev);
+          next.set(slotId, { loading: false, song, error: null });
+          return next;
+        });
         setNewSongs((prev) => [...prev, song]);
       } catch (err) {
-        const message =
+        const errMsg =
           err instanceof Error ? err.message : "Generation failed";
-        setSlots((prev) =>
-          prev.map((slot) =>
-            slot.index === i
-              ? { ...slot, loading: false, song: null, error: message }
-              : slot
-          )
-        );
+        setSlots((prev) => {
+          const next = new Map(prev);
+          next.set(slotId, { loading: false, song: null, error: errMsg });
+          return next;
+        });
       }
     });
 
     await Promise.allSettled(promises);
     setIsGenerating(false);
     // Clear slots now that all have resolved; the persisted songs list shows the results.
-    setSlots([]);
+    setSlots(new Map());
   }, [messageId, message, isGenerating, guardAction]);
 
   /** Pin or unpin a song; reflects the change locally without a full re-read. */
@@ -221,12 +224,16 @@ export default function SongGenerator() {
     [songs, songOverrides]
   );
 
-  // Songs being shown in active slots (not yet moved to the persisted list).
-  const slotSongIds = new Set(
-    slots.filter((s) => s.song !== null).map((s) => s.song!.id)
-  );
+  // Song IDs currently shown in active slots (not yet moved to the persisted list).
+  const slotSongIds = new Set<string>();
+  for (const state of slots.values()) {
+    if (state.song !== null) slotSongIds.add(state.song.id);
+  }
   // Songs to show in the static list (excludes those currently in active slots).
   const listedSongs = resolvedSongs.filter((s) => !slotSongIds.has(s.id));
+
+  // Ordered slot entries for rendering (Map insertion order = slot order).
+  const slotEntries = [...slots.entries()];
 
   return (
     <div className="p-8 max-w-3xl">
@@ -262,34 +269,34 @@ export default function SongGenerator() {
           disabled={isGenerating}
           data-testid="generate-songs-btn"
         >
-          {isGenerating ? "Generating…" : "Generate Songs"}
+          {isGenerating ? "Generating…" : "Generate"}
         </Button>
       </div>
 
       {/* In-progress slots (shown during generation) */}
-      {slots.length > 0 && (
+      {slotEntries.length > 0 && (
         <div className="mt-6 space-y-4" data-testid="song-slots">
-          {slots.map((slot) => (
+          {slotEntries.map(([slotId, state], index) => (
             <div
-              key={slot.index}
+              key={slotId}
               className="rounded-md border p-4"
-              data-testid={`song-slot-${slot.index}`}
+              data-testid={`song-slot-${index}`}
             >
-              {slot.loading ? (
+              {state.loading ? (
                 <div
                   className="animate-pulse text-sm text-muted-foreground"
-                  data-testid={`song-loading-${slot.index}`}
-                  aria-label={`Generating song ${slot.index + 1}…`}
+                  data-testid={`song-loading-${index}`}
+                  aria-label={`Generating song ${index + 1}…`}
                 >
-                  Generating song {slot.index + 1}…
+                  Generating song {index + 1}…
                 </div>
-              ) : slot.error ? (
-                <p className="text-sm text-destructive" data-testid={`song-error-${slot.index}`}>
-                  Error: {slot.error}
+              ) : state.error ? (
+                <p className="text-sm text-destructive" data-testid={`song-error-${index}`}>
+                  Error: {state.error}
                 </p>
-              ) : slot.song ? (
+              ) : state.song ? (
                 <SongItem
-                  song={slot.song}
+                  song={state.song}
                   onPin={handlePin}
                   onDelete={handleDelete}
                   onDownload={handleDownload}
@@ -334,9 +341,17 @@ interface SongItemProps {
 
 /**
  * Renders a single song with its title, an inline HTML5 audio player, and
- * action buttons for pin, delete, and download (US-012).
+ * action buttons for pin, delete, and download.
+ *
+ * Wrapped in React.memo so that a Map state update for one song does not
+ * cause sibling SongItem components to re-render.
  */
-function SongItem({ song, onPin, onDelete, onDownload }: SongItemProps) {
+const SongItem = memo(function SongItem({
+  song,
+  onPin,
+  onDelete,
+  onDownload,
+}: SongItemProps) {
   return (
     <>
       <div className="flex items-center justify-between mb-2">
@@ -381,4 +396,4 @@ function SongItem({ song, onPin, onDelete, onDownload }: SongItemProps) {
       />
     </>
   );
-}
+});

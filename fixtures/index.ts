@@ -200,6 +200,7 @@ export const songGeneratorFixture: StorageExport = {
         "Sunday holds us soft and slow",
         "Nowhere we need to go",
       ].join("\n"),
+      duration: 180,
       createdAt: "2026-01-05T09:01:00.000Z",
       deleted: false,
     },

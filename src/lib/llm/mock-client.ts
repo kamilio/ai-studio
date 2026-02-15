@@ -37,7 +37,7 @@ export class MockLLMClient implements LLMClient {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async generateSong(_prompt: string): Promise<string> {
+  async generateSong(_prompt: string, _musicLengthMs?: number): Promise<string> {
     await this.delay();
     const parsed = JSON.parse(songFixtureRaw) as { audioUrl: string };
     return parsed.audioUrl;

@@ -15,6 +15,8 @@ export interface LLMClient {
 
   /**
    * Submit a style prompt to ElevenLabs and return a publicly-accessible audio URL.
+   * @param prompt - style/lyrics prompt
+   * @param musicLengthMs - desired audio length in milliseconds (derived from message.duration * 1000)
    */
-  generateSong(prompt: string): Promise<string>;
+  generateSong(prompt: string, musicLengthMs?: number): Promise<string>;
 }

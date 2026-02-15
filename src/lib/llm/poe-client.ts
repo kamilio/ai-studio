@@ -41,12 +41,12 @@ export class PoeLLMClient implements LLMClient {
     return content;
   }
 
-  async generateSong(prompt: string): Promise<string> {
+  async generateSong(prompt: string, musicLengthMs?: number): Promise<string> {
     const response = await this.client.chat.completions.create({
       model: "elevenlabs-music",
       messages: [{ role: "user", content: prompt }],
       // @ts-expect-error extra_body is a Poe-specific extension not in the OpenAI types
-      extra_body: { music_length_ms: 150000 },
+      extra_body: { music_length_ms: musicLengthMs ?? 150000 },
     });
 
     const audioUrl = response.choices[0]?.message?.content;
