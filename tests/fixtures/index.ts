@@ -9,9 +9,14 @@
  * The root message has parentId: null and role "user". Each assistant reply has
  * lyrics fields (title, style, commentary, lyricsBody) populated from the response.
  * Songs reference the assistant Message whose lyrics were used (messageId).
+ *
+ * Image fixtures use the ImageStorageExport format consumed by
+ * imageStorageService.import(). Playwright tests seed storage state via
+ * window.imageStorageService.import(fixture) before navigating to image pages.
  */
 
-import type { StorageExport } from "../src/music/lib/storage/types";
+import type { StorageExport } from "../../src/music/lib/storage/types";
+import type { ImageStorageExport } from "../../src/image/lib/storage/types";
 
 /** Empty state: no settings, no messages, no songs. */
 export const emptyFixture: StorageExport = {
@@ -690,4 +695,198 @@ export const multiEntryFixture: StorageExport = {
       createdAt: "2026-01-04T07:12:00.000Z",
     },
   ],
+};
+
+// ─── Image Fixtures ───────────────────────────────────────────────────────────
+
+/**
+ * Base image fixture: one session, one generation (stepId 1), three ImageItems.
+ * Suitable for most image feature tests where a single generation step is enough.
+ *
+ * Session:    fixture-img-session-1
+ * Generation: fixture-img-gen-1  (stepId 1, prompt: serene Japanese garden)
+ * Items:      fixture-img-item-1, fixture-img-item-2, fixture-img-item-3
+ */
+export const imageBaseFixture: ImageStorageExport = {
+  sessions: [
+    {
+      id: "fixture-img-session-1",
+      title: "A serene Japanese garden with a koi pond at golden hour",
+      createdAt: "2026-01-10T10:00:00.000Z",
+    },
+  ],
+  generations: [
+    {
+      id: "fixture-img-gen-1",
+      sessionId: "fixture-img-session-1",
+      stepId: 1,
+      prompt:
+        "A serene Japanese garden with a koi pond at golden hour, photorealistic",
+      createdAt: "2026-01-10T10:01:00.000Z",
+    },
+  ],
+  items: [
+    {
+      id: "fixture-img-item-1",
+      generationId: "fixture-img-gen-1",
+      url: "https://pfst.cf2.poecdn.net/base/image/3b4ad274cac34e532177281ef1458c2dbf7f8cf20b8f2c7cd909676760d6f079?w=1024&h=1024",
+      pinned: false,
+      deleted: false,
+      createdAt: "2026-01-10T10:01:05.000Z",
+    },
+    {
+      id: "fixture-img-item-2",
+      generationId: "fixture-img-gen-1",
+      url: "https://pfst.cf2.poecdn.net/base/image/4a551708e0721d7c17e2d1978723751dc60851626136e7635441fb46a513782a?w=1024&h=1024",
+      pinned: false,
+      deleted: false,
+      createdAt: "2026-01-10T10:01:06.000Z",
+    },
+    {
+      id: "fixture-img-item-3",
+      generationId: "fixture-img-gen-1",
+      url: "https://pfst.cf2.poecdn.net/base/image/b57fc2f73d659aa13f3f0b9cebd5343ec1d1e99fed8ad3955631bb5be0c7e6b2?w=1024&h=1024",
+      pinned: false,
+      deleted: false,
+      createdAt: "2026-01-10T10:01:07.000Z",
+    },
+  ],
+  settings: {
+    numImages: 3,
+  },
+};
+
+/**
+ * Pinned image fixture: one session, one generation, one pinned ImageItem.
+ * Used for testing the Pinned Images page and pin/unpin actions.
+ *
+ * Session:    fixture-img-pinned-session-1
+ * Generation: fixture-img-pinned-gen-1  (stepId 1, prompt: vintage acoustic guitar)
+ * Items:      fixture-img-pinned-item-1 (pinned: true)
+ */
+export const imagePinnedFixture: ImageStorageExport = {
+  sessions: [
+    {
+      id: "fixture-img-pinned-session-1",
+      title: "Vintage acoustic guitar leaning against a brick wall",
+      createdAt: "2026-01-11T14:00:00.000Z",
+    },
+  ],
+  generations: [
+    {
+      id: "fixture-img-pinned-gen-1",
+      sessionId: "fixture-img-pinned-session-1",
+      stepId: 1,
+      prompt:
+        "Vintage acoustic guitar leaning against a brick wall, dramatic studio lighting",
+      createdAt: "2026-01-11T14:01:00.000Z",
+    },
+  ],
+  items: [
+    {
+      id: "fixture-img-pinned-item-1",
+      generationId: "fixture-img-pinned-gen-1",
+      url: "https://pfst.cf2.poecdn.net/base/image/a8b6589b3a89a746bffd7a48afe5587953e16380dc82a712eb05f20149d7121c?w=1024&h=1024",
+      pinned: true,
+      deleted: false,
+      createdAt: "2026-01-11T14:01:05.000Z",
+    },
+  ],
+  settings: {
+    numImages: 3,
+  },
+};
+
+/**
+ * Multi-step image fixture: one session, two generations (stepId 1 and 2),
+ * six ImageItems (three per step). Used for testing thumbnail panel grouping,
+ * main-pane latest-step rendering, and screenshot baselines.
+ *
+ * Session:      fixture-img-multi-session-1
+ * Generation 1: fixture-img-multi-gen-1  (stepId 1, prompt: northern lights)
+ * Generation 2: fixture-img-multi-gen-2  (stepId 2, prompt: northern lights, wider angle)
+ * Items step 1: fixture-img-multi-item-1 … fixture-img-multi-item-3
+ * Items step 2: fixture-img-multi-item-4 … fixture-img-multi-item-6
+ */
+export const imageMultiStepFixture: ImageStorageExport = {
+  sessions: [
+    {
+      id: "fixture-img-multi-session-1",
+      title: "Northern lights dancing over a snow-covered mountain lake",
+      createdAt: "2026-01-12T20:00:00.000Z",
+    },
+  ],
+  generations: [
+    {
+      id: "fixture-img-multi-gen-1",
+      sessionId: "fixture-img-multi-session-1",
+      stepId: 1,
+      prompt:
+        "Northern lights dancing over a snow-covered mountain lake, long exposure",
+      createdAt: "2026-01-12T20:01:00.000Z",
+    },
+    {
+      id: "fixture-img-multi-gen-2",
+      sessionId: "fixture-img-multi-session-1",
+      stepId: 2,
+      prompt:
+        "Northern lights dancing over a snow-covered mountain lake, wider angle, more vivid colors",
+      createdAt: "2026-01-12T20:05:00.000Z",
+    },
+  ],
+  items: [
+    // Step 1 items
+    {
+      id: "fixture-img-multi-item-1",
+      generationId: "fixture-img-multi-gen-1",
+      url: "https://pfst.cf2.poecdn.net/base/image/131abd51bd2db2a860872cc2924e29d254c7b0b1ef623d1196da62e9d930355f?w=1024&h=1024",
+      pinned: false,
+      deleted: false,
+      createdAt: "2026-01-12T20:01:05.000Z",
+    },
+    {
+      id: "fixture-img-multi-item-2",
+      generationId: "fixture-img-multi-gen-1",
+      url: "https://pfst.cf2.poecdn.net/base/image/2f6b9ec916b01eabb7a41a40559777a91f563f61a9caafac57f0fdc427b44989?w=1024&h=1024",
+      pinned: false,
+      deleted: false,
+      createdAt: "2026-01-12T20:01:06.000Z",
+    },
+    {
+      id: "fixture-img-multi-item-3",
+      generationId: "fixture-img-multi-gen-1",
+      url: "https://pfst.cf2.poecdn.net/base/image/6ba8260f4e968b45cb9aadc1e356aa6e17c3993dd44d8610a83279272e4dc689?w=1024&h=1024",
+      pinned: false,
+      deleted: false,
+      createdAt: "2026-01-12T20:01:07.000Z",
+    },
+    // Step 2 items
+    {
+      id: "fixture-img-multi-item-4",
+      generationId: "fixture-img-multi-gen-2",
+      url: "https://pfst.cf2.poecdn.net/base/image/7d96f65044460ff04f2755da74da4deeba193f9ca63ad993f8eacb1e472fd5d6?w=1024&h=1024",
+      pinned: false,
+      deleted: false,
+      createdAt: "2026-01-12T20:05:05.000Z",
+    },
+    {
+      id: "fixture-img-multi-item-5",
+      generationId: "fixture-img-multi-gen-2",
+      url: "https://pfst.cf2.poecdn.net/base/image/408da1759d500a53db32a931daf4c6a3397a4fd3aa2379866c45288d51f3b27e?w=1024&h=1024",
+      pinned: false,
+      deleted: false,
+      createdAt: "2026-01-12T20:05:06.000Z",
+    },
+    {
+      id: "fixture-img-multi-item-6",
+      generationId: "fixture-img-multi-gen-2",
+      url: "https://pfst.cf2.poecdn.net/base/image/276aa5bd8a7a47f0d928a481f92d2c812fc049ae0f8d41b2181f20ecb9e34a49?w=1024&h=1024",
+      pinned: false,
+      deleted: false,
+      createdAt: "2026-01-12T20:05:07.000Z",
+    },
+  ],
+  settings: {
+    numImages: 3,
+  },
 };
