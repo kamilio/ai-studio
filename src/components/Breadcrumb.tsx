@@ -93,15 +93,17 @@ export function Breadcrumb() {
             )}
             {isLast ? (
               <span
-                className="shrink-0 font-medium text-foreground truncate"
+                className="font-medium text-foreground truncate max-w-[160px] sm:max-w-none shrink-0"
                 aria-current="page"
+                title={seg.label}
               >
                 {seg.label}
               </span>
             ) : (
               <Link
                 to={seg.href!}
-                className="truncate hover:text-foreground transition-colors min-w-0"
+                className="truncate hover:text-foreground transition-colors min-w-0 shrink"
+                title={seg.label}
               >
                 {seg.label}
               </Link>

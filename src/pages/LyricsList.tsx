@@ -96,7 +96,7 @@ export default function LyricsList() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-6">
         <h1>Lyrics List</h1>
         <Button onClick={handleNewLyrics}>
@@ -155,7 +155,7 @@ export default function LyricsList() {
                 <tr
                   key={entry.id}
                   onClick={() => handleRowClick(entry.id)}
-                  className={`cursor-pointer hover:bg-muted/50 active:bg-muted/70 focus-within:bg-muted/30 transition-colors ${
+                  className={`cursor-pointer hover:bg-muted/50 active:bg-muted/70 focus-within:bg-muted/30 transition-colors h-[44px] ${
                     idx !== 0 ? "border-t" : ""
                   }`}
                 >
@@ -192,7 +192,7 @@ export default function LyricsList() {
                     <button
                       onClick={(e) => handleDelete(e, entry.id)}
                       aria-label={`Delete ${entry.title ?? "entry"}`}
-                      className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded"
+                      className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

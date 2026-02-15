@@ -650,7 +650,7 @@ export default function LyricsGenerator() {
         className="flex-1 border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 resize-none"
         data-testid="chat-input"
       />
-      <Button type="submit" disabled={isLoading} data-testid="chat-submit">
+      <Button type="submit" disabled={isLoading} data-testid="chat-submit" className="min-h-[44px]">
         {isLoading ? "Sending…" : "Send"}
       </Button>
     </form>
@@ -683,7 +683,7 @@ export default function LyricsGenerator() {
           <span aria-hidden="true">·</span>
           <button
             type="button"
-            className="font-medium text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+            className="font-medium text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded min-h-[44px] inline-flex items-center px-1"
             onClick={() => navigate(`/lyrics/${latestLeafId}`)}
             data-testid="return-to-latest-btn"
           >
@@ -705,7 +705,7 @@ export default function LyricsGenerator() {
               role="tab"
               aria-selected={activeTab === "lyrics"}
               aria-controls="lyrics-tab-panel"
-              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+              className={`flex-1 py-3 min-h-[44px] text-sm font-medium transition-colors ${
                 activeTab === "lyrics"
                   ? "border-b-2 border-primary text-foreground"
                   : "text-muted-foreground hover:text-foreground"
@@ -719,7 +719,7 @@ export default function LyricsGenerator() {
               role="tab"
               aria-selected={activeTab === "chat"}
               aria-controls="chat-tab-panel"
-              className={`flex-1 py-3 text-sm font-medium transition-colors ${
+              className={`flex-1 py-3 min-h-[44px] text-sm font-medium transition-colors ${
                 activeTab === "chat"
                   ? "border-b-2 border-primary text-foreground"
                   : "text-muted-foreground hover:text-foreground"
@@ -775,6 +775,7 @@ export default function LyricsGenerator() {
           onClick={handleGenerateSongs}
           disabled={!id}
           data-testid="generate-songs-btn"
+          className="min-h-[44px]"
         >
           Generate Songs
         </Button>

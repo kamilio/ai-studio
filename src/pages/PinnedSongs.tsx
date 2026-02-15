@@ -90,7 +90,7 @@ export default function PinnedSongs() {
   }, []);
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-4 md:p-8 max-w-3xl">
       <h1>Pinned Songs</h1>
       <p className="text-muted-foreground mt-2">
         Your pinned songs, ready to play or download.
@@ -165,6 +165,7 @@ function PinnedSongItem({
             onClick={() => onUnpin(song)}
             data-testid="pinned-song-unpin-btn"
             aria-label="Unpin song"
+            className="min-h-[44px]"
           >
             Unpin
           </Button>
@@ -174,6 +175,7 @@ function PinnedSongItem({
             onClick={() => onDownload(song)}
             data-testid="pinned-song-download-btn"
             aria-label="Download song"
+            className="min-h-[44px]"
           >
             Download
           </Button>

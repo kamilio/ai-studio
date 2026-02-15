@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 @theme {
+  /* Touch target minimum size for mobile accessibility */
+  --touch-target-min: 44px;
   --color-background: hsl(0 0% 100%);
   --color-foreground: hsl(222.2 84% 4.9%);
   --color-card: hsl(0 0% 100%);
@@ -89,6 +91,34 @@
 [data-tag-color="2"] { background-color: var(--color-tag-2-bg); color: var(--color-tag-2-fg); }
 [data-tag-color="3"] { background-color: var(--color-tag-3-bg); color: var(--color-tag-3-fg); }
 [data-tag-color="4"] { background-color: var(--color-tag-4-bg); color: var(--color-tag-4-fg); }
+
+/* ── Mobile: prevent horizontal overflow ─────────────────────────────────── */
+@media (max-width: 767px) {
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+  #root {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+}
+
+/* ── Mobile touch targets: minimum 44×44px for interactive elements ─────── */
+/*
+ * Any button or link that could be too small on mobile is boosted to at least
+ * 44×44 via min-height + min-width on small viewports (< 768px).
+ */
+@media (max-width: 767px) {
+  /* Table row delete buttons */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
 
 /* ── Audio player chrome reduction ──────────────────────────────────────── */
 audio.song-audio {

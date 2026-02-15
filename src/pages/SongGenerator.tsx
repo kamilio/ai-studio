@@ -274,7 +274,7 @@ export default function SongGenerator() {
   const slotEntries = [...slots.entries()];
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-4 md:p-8 max-w-3xl">
       <h1 className="font-bold">Song Generator</h1>
       <p className="text-muted-foreground mt-2">
         Generate audio from your lyrics using ElevenLabs.
@@ -306,6 +306,7 @@ export default function SongGenerator() {
           onClick={handleGenerate}
           disabled={isGenerating}
           data-testid="generate-songs-btn"
+          className="min-h-[44px]"
         >
           {isGenerating ? "Generating…" : "Generate"}
         </Button>
@@ -415,13 +416,14 @@ const SongItem = memo(function SongItem({
         <p className="font-medium text-sm" data-testid="song-title">
           {song.title}
         </p>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
             onClick={() => onPin(song)}
             data-testid="song-pin-btn"
             aria-label={song.pinned ? "Unpin song" : "Pin song"}
+            className="min-h-[44px]"
           >
             {song.pinned ? "Unpin" : "Pin"}
           </Button>
@@ -431,6 +433,7 @@ const SongItem = memo(function SongItem({
             onClick={() => onDownload(song)}
             data-testid="song-download-btn"
             aria-label="Download song"
+            className="min-h-[44px]"
           >
             Download
           </Button>
@@ -440,6 +443,7 @@ const SongItem = memo(function SongItem({
             onClick={() => onDelete(song)}
             data-testid="song-delete-btn"
             aria-label="Delete song"
+            className="min-h-[44px]"
           >
             Delete
           </Button>

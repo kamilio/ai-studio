@@ -85,7 +85,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="p-8 max-w-lg">
+    <div className="p-4 md:p-8 max-w-lg">
       <h1>Settings</h1>
       <p className="text-muted-foreground mt-2">Configure your API key and preferences.</p>
 

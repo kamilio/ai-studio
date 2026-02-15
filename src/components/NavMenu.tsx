@@ -110,7 +110,7 @@ export function NavMenu() {
         aria-haspopup="menu"
         onClick={() => setOpen((prev) => !prev)}
         data-testid="nav-menu-trigger"
-        className="h-9 w-9 rounded-full flex items-center justify-center border bg-background hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-9 w-9 min-h-[44px] min-w-[44px] rounded-full flex items-center justify-center border bg-background hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Menu className="h-4 w-4" />
       </button>
@@ -125,7 +125,7 @@ export function NavMenu() {
           {items.map((item) => {
             const Icon = item.icon;
             const sharedClass =
-              "flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer text-left";
+              "flex items-center gap-2 w-full px-3 py-2 min-h-[44px] text-sm hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer text-left";
 
             if (item.href) {
               return (
