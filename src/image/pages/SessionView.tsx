@@ -1,5 +1,5 @@
 /**
- * SessionView page (US-014)
+ * SessionView page (US-014, US-015)
  *
  * Route: /image/sessions/:id
  *
@@ -17,9 +17,10 @@
  * On mobile (< 640px) the thumbnail panel collapses into a horizontal
  * scrollable strip above the bottom input bar.
  *
- * Subsequent stories (US-015 – US-021) will fill the three regions with
- * real content. For now each region renders a labelled placeholder so the
- * structural skeleton is testable.
+ * US-015: Main pane renders images from the generation with the highest
+ * stepId only, displayed in rows fitting the container width. Each image
+ * renders as a card with an img element. Empty state shown when no
+ * completed generations exist.
  */
 
 import { Link, Navigate, useParams } from "react-router-dom";
@@ -87,6 +88,77 @@ function TopBar() {
   );
 }
 
+// ─── MainPane ──────────────────────────────────────────────────────────────
+
+interface MainPaneProps {
+  generations: ImageGeneration[];
+  items: ImageItem[];
+}
+
+/**
+ * Renders images from the generation with the highest stepId.
+ * Shows an empty state when no generations exist.
+ */
+function MainPane({ generations, items }: MainPaneProps) {
+  if (generations.length === 0) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center h-full text-center gap-2"
+        data-testid="main-pane-empty"
+      >
+        <p className="text-muted-foreground text-sm">
+          No images yet. Enter a prompt below to generate images.
+        </p>
+      </div>
+    );
+  }
+
+  // Find the generation with the highest stepId
+  const latestGeneration = generations.reduce((best, g) =>
+    g.stepId > best.stepId ? g : best
+  );
+
+  // Get non-deleted items for that generation
+  const latestItems = items.filter(
+    (item) => item.generationId === latestGeneration.id && !item.deleted
+  );
+
+  if (latestItems.length === 0) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center h-full text-center gap-2"
+        data-testid="main-pane-empty"
+      >
+        <p className="text-muted-foreground text-sm">
+          No images yet. Enter a prompt below to generate images.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex flex-wrap gap-4 content-start"
+      data-testid="main-pane-images"
+    >
+      {latestItems.map((item) => (
+        <div
+          key={item.id}
+          className="rounded-lg overflow-hidden border bg-card shadow-sm"
+          data-testid="image-card"
+        >
+          <img
+            src={item.url}
+            alt=""
+            className="w-full h-auto block"
+            style={{ maxWidth: "320px" }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── SessionView ───────────────────────────────────────────────────────────
 
 interface SessionData {
@@ -143,10 +215,7 @@ export default function SessionView() {
             aria-label="Generated images"
             data-testid="main-pane"
           >
-            {/* Placeholder — content filled by US-015 */}
-            <p className="text-muted-foreground text-sm" data-testid="main-pane-placeholder">
-              {`Session: ${data.session.title}`}
-            </p>
+            <MainPane generations={data.generations} items={data.items} />
           </main>
 
           {/* ── Thumbnail panel (desktop right panel) ──────────────────── */}

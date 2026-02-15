@@ -89,11 +89,12 @@ test.describe("Session view shell (US-014)", () => {
     await expect(page.getByTestId("main-pane")).toBeVisible();
   });
 
-  test("main pane shows session title", async ({ page }) => {
+  test("main pane shows images from latest generation step (US-015)", async ({ page }) => {
     await page.goto(`/image/sessions/${SESSION_ID}`);
-    await expect(page.getByTestId("main-pane-placeholder")).toContainText(
-      "A serene mountain landscape at golden hour"
-    );
+    // US-015: main pane renders image cards for the latest step
+    await expect(page.getByTestId("main-pane-images")).toBeVisible();
+    const cards = page.getByTestId("image-card");
+    await expect(cards).toHaveCount(3);
   });
 
   test("bottom bar region is present", async ({ page }) => {
