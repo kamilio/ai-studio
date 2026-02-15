@@ -1,8 +1,9 @@
 /**
- * PinnedSongs page (US-013).
+ * PinnedSongs page (US-010 / US-013).
  *
  * Displays all pinned, non-deleted songs across every message.
- * Each song shows its title and the associated message title (lyrics title).
+ * Each song shows its title and the associated message title (lyrics title)
+ * as a clickable link to /lyrics/:messageId/songs (US-010).
  *
  * Per-song actions:
  *   - Play: inline HTML5 audio player (always visible)
@@ -11,6 +12,7 @@
  */
 
 import { useCallback, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { getSongs, getMessages, pinSong } from "@/lib/storage/storageService";
 import type { Song } from "@/lib/storage/types";
@@ -116,8 +118,8 @@ interface PinnedSongItemProps {
 
 /**
  * Renders a single pinned song with its title, the associated lyrics entry
- * title, an inline HTML5 audio player, and action buttons for unpin and
- * download (US-013).
+ * title as a link to /lyrics/:messageId/songs (US-010), an inline HTML5
+ * audio player, and action buttons for unpin and download.
  */
 function PinnedSongItem({
   song,
@@ -136,12 +138,13 @@ function PinnedSongItem({
             {song.title}
           </p>
           {entryTitle && (
-            <p
-              className="text-xs text-muted-foreground mt-0.5"
+            <Link
+              to={`/lyrics/${song.messageId}/songs`}
+              className="text-xs text-primary underline-offset-2 hover:underline mt-0.5 block"
               data-testid="pinned-song-entry-title"
             >
               {entryTitle}
-            </p>
+            </Link>
           )}
         </div>
         <div className="flex gap-2">

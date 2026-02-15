@@ -1,9 +1,10 @@
 /**
- * Tests for US-013: Pinned Songs page.
+ * Tests for US-013 / US-010: Pinned Songs page.
  *
  * Verifies that:
  * - All pinned, non-deleted songs are listed
  * - Each song shows its title and associated lyrics entry title
+ * - The lyrics entry title is a clickable link to /lyrics/:messageId/songs (US-010)
  * - Play renders an inline HTML5 audio player
  * - Unpin sets pinned: false and removes the song from the view
  * - Download button is visible on each pinned song item
@@ -47,6 +48,37 @@ test.describe("Pinned Songs page (US-013)", () => {
     // Entry title should be shown under the song title
     await expect(page.getByTestId("pinned-song-entry-title")).toHaveText(
       "Pinned Anthem"
+    );
+  });
+
+  test("US-010: lyrics title is a link to /lyrics/:messageId/songs", async ({
+    page,
+  }) => {
+    await seedFixture(page, pinnedFixture);
+    await page.goto("/pinned");
+
+    // The entry title element should be an anchor (<a>) pointing to the Songs View
+    const entryTitleLink = page.getByTestId("pinned-song-entry-title");
+    await expect(entryTitleLink).toBeVisible();
+    await expect(entryTitleLink).toHaveText("Pinned Anthem");
+
+    // Verify it is a link with the correct href
+    const expectedHref = `/lyrics/fixture-msg-pinned-a/songs`;
+    await expect(entryTitleLink).toHaveAttribute("href", expectedHref);
+  });
+
+  test("US-010: clicking lyrics title link navigates to correct Songs View", async ({
+    page,
+  }) => {
+    await seedFixture(page, pinnedFixture);
+    await page.goto("/pinned");
+
+    // Click the lyrics title link
+    await page.getByTestId("pinned-song-entry-title").click();
+
+    // Should navigate to the Songs View for the source message
+    await expect(page).toHaveURL(
+      "/lyrics/fixture-msg-pinned-a/songs"
     );
   });
 
