@@ -7,12 +7,18 @@ import {
   importStorage,
   resetStorage,
 } from "@/music/lib/storage/storageService";
+import {
+  getImageSettings,
+  saveImageSettings,
+} from "@/image/lib/storage/storageService";
 
 function loadInitialSettings() {
   const settings = getSettings();
+  const imageSettings = getImageSettings();
   return {
     apiKey: settings?.poeApiKey ?? "",
     numSongs: settings?.numSongs ?? 3,
+    numImages: imageSettings?.numImages ?? 3,
   };
 }
 
@@ -21,6 +27,7 @@ export default function Settings() {
   const navigate = useNavigate();
   const [apiKey, setApiKey] = useState(initial.apiKey);
   const [numSongs, setNumSongs] = useState(initial.numSongs);
+  const [numImages, setNumImages] = useState(initial.numImages);
   const [includeApiKey, setIncludeApiKey] = useState(false);
   const [savedMessage, setSavedMessage] = useState("");
   const [importError, setImportError] = useState("");
@@ -30,6 +37,7 @@ export default function Settings() {
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     saveSettings({ poeApiKey: apiKey, numSongs });
+    saveImageSettings({ numImages });
     setSavedMessage("Settings saved.");
     setTimeout(() => setSavedMessage(""), 3000);
   }
@@ -89,8 +97,9 @@ export default function Settings() {
       <h1>Settings</h1>
       <p className="text-muted-foreground mt-1">Configure your API key and preferences.</p>
 
-      <form onSubmit={handleSubmit} className="mt-6">
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div className="rounded-lg border bg-card p-5 space-y-4">
+          <h2 className="text-base font-semibold">Music</h2>
           <div className="space-y-1.5">
             <label htmlFor="apiKey" className="text-sm font-medium">
               POE API Key
@@ -130,18 +139,36 @@ export default function Settings() {
               className="w-24 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
+        </div>
 
-          <div className="flex items-center gap-3 pt-1">
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            >
-              Save Settings
-            </button>
-            {savedMessage && (
-              <p className="text-sm text-green-600">{savedMessage}</p>
-            )}
+        <div className="rounded-lg border bg-card p-5 space-y-4">
+          <h2 className="text-base font-semibold">Image</h2>
+          <div className="space-y-1.5">
+            <label htmlFor="numImages" className="text-sm font-medium">
+              Images to generate per request
+            </label>
+            <input
+              id="numImages"
+              type="number"
+              min={1}
+              max={10}
+              value={numImages}
+              onChange={(e) => setNumImages(Number(e.target.value))}
+              className="w-24 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
           </div>
+        </div>
+
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            type="submit"
+            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            Save Settings
+          </button>
+          {savedMessage && (
+            <p className="text-sm text-green-600">{savedMessage}</p>
+          )}
         </div>
       </form>
 

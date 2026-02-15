@@ -132,11 +132,11 @@ function updateItem(
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
-function getImageSettings(): ImageSettings | null {
+export function getImageSettings(): ImageSettings | null {
   return readJSON<ImageSettings>(KEYS.settings);
 }
 
-function saveImageSettings(settings: ImageSettings): void {
+export function saveImageSettings(settings: ImageSettings): void {
   writeJSON(KEYS.settings, settings);
 }
 
