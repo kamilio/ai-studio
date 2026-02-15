@@ -1,5 +1,5 @@
 /**
- * LyricsGenerator page (US-004 / US-005 / US-009 / US-010).
+ * LyricsGenerator page (US-004 / US-005 / US-007 / US-009 / US-010).
  *
  * Route: /lyrics/:messageId
  *
@@ -13,6 +13,12 @@
  * Each field (title, style, commentary, duration, lyricsBody) can be clicked
  * to activate an inline editor. Saves on blur or Enter (Shift+Enter for
  * multiline fields). Pencil icon visible on hover.
+ *
+ * US-007: Checkpoint navigation with "Viewing earlier version" banner.
+ * When the current message has descendants, a banner is shown:
+ *   "Viewing an earlier version · Return to latest"
+ * "Return to latest" navigates to the most recent leaf via getLatestLeaf().
+ * Sending from a checkpoint creates a new branch (parentId = checkpoint id).
  *
  * Layout:
  *   Desktop (≥ 768px): side-by-side split panels (lyrics left, chat right).
@@ -36,6 +42,7 @@ import {
   createMessage,
   getMessage,
   getAncestors,
+  getLatestLeaf,
   getSettings,
   updateMessage,
 } from "@/lib/storage/storageService";
@@ -285,10 +292,24 @@ export default function LyricsGenerator() {
     () => (id ? getAncestors(id) : [])
   );
 
+  // Latest leaf descendant of the current message (null if current is already the leaf).
+  // When latestLeafId !== id, the "Viewing earlier version" banner is shown.
+  const [latestLeafId, setLatestLeafId] = useState<string | null>(() => {
+    if (!id) return null;
+    const leaf = getLatestLeaf(id);
+    return leaf && leaf.id !== id ? leaf.id : null;
+  });
+
   useEffect(() => {
     const msg = id ? getMessage(id) : null;
     setCurrentMessage(msg);
     setAncestorPath(id ? getAncestors(id) : []);
+    if (id) {
+      const leaf = getLatestLeaf(id);
+      setLatestLeafId(leaf && leaf.id !== id ? leaf.id : null);
+    } else {
+      setLatestLeafId(null);
+    }
   }, [id, refreshCount]);
 
   // Scroll chat to bottom when ancestor path grows.
@@ -595,6 +616,27 @@ export default function LyricsGenerator() {
 
   return (
     <div className="flex flex-col h-full min-h-0">
+      {/* ── US-007: "Viewing earlier version" banner ─────────────────────── */}
+      {latestLeafId && (
+        <div
+          className="flex items-center justify-center gap-2 bg-muted/70 border-b px-4 py-2 text-sm text-muted-foreground shrink-0"
+          data-testid="checkpoint-banner"
+          role="status"
+          aria-live="polite"
+        >
+          <span>Viewing an earlier version</span>
+          <span aria-hidden="true">·</span>
+          <button
+            type="button"
+            className="font-medium text-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded"
+            onClick={() => navigate(`/lyrics/${latestLeafId}`)}
+            data-testid="return-to-latest-btn"
+          >
+            Return to latest
+          </button>
+        </div>
+      )}
+
       {isMobile ? (
         <>
           {/* ── Mobile: tab bar + active tab panel ─────────────────────── */}
