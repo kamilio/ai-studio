@@ -1,5 +1,5 @@
 /**
- * LyricsGenerator page (US-009).
+ * LyricsGenerator page (US-009 + US-010).
  *
  * Split-panel layout:
  *   Left panel  – YAML frontmatter (title, style, commentary) + lyrics body
@@ -10,21 +10,67 @@
  * US-011 can pick it up.
  *
  * For `/lyrics/new` the page has no entry yet; empty-state messages are shown.
- * For `/lyrics/:id` the entry is read from localStorage via useMemo.
+ * For `/lyrics/:id` the entry is read from localStorage.
  *
- * Chat submission is guarded by the API key check (US-007). Actual LLM
- * integration is wired up in US-010; the handler here is a stub that validates
- * the API key and clears the input.
+ * Chat submission (US-010): calls createLLMClient().chat() with the full
+ * conversation history, parses the frontmatter from the response, persists
+ * the updated chatHistory + lyrics fields to localStorage, then re-reads the
+ * entry to trigger a re-render.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ApiKeyMissingModal } from "@/components/ApiKeyMissingModal";
 import { useApiKeyGuard } from "@/hooks/useApiKeyGuard";
-import { getLyricsEntry } from "@/lib/storage/storageService";
-import type { ChatMessage } from "@/lib/storage/types";
+import {
+  getLyricsEntry,
+  getSettings,
+  updateLyricsEntry,
+} from "@/lib/storage/storageService";
+import type { ChatMessage, LyricsEntry } from "@/lib/storage/types";
+import { createLLMClient } from "@/lib/llm/factory";
+
+/**
+ * Parse the frontmatter + body from an LLM response string.
+ *
+ * Expected format:
+ *   ---
+ *   title: "..."
+ *   style: "..."
+ *   commentary: "..."
+ *   ---
+ *   <lyrics body>
+ *
+ * Returns parsed fields if the header block is present; otherwise returns null
+ * so the caller can fall back to leaving the entry unchanged.
+ */
+function parseLyricsResponse(text: string): {
+  title: string;
+  style: string;
+  commentary: string;
+  body: string;
+} | null {
+  const match = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (!match) return null;
+
+  const frontmatter = match[1];
+  const body = match[2].trim();
+
+  function extractField(name: string): string {
+    const re = new RegExp(`^${name}:\\s*"?([^"\\n]+)"?`, "m");
+    const m = frontmatter.match(re);
+    return m ? m[1].trim() : "";
+  }
+
+  return {
+    title: extractField("title"),
+    style: extractField("style"),
+    commentary: extractField("commentary"),
+    body,
+  };
+}
 
 export default function LyricsGenerator() {
   const { id } = useParams<{ id: string }>();
@@ -32,13 +78,19 @@ export default function LyricsGenerator() {
   const { isModalOpen, guardAction, closeModal } = useApiKeyGuard();
 
   const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  // Refresh counter: incrementing it causes entry to be re-read from storage.
+  const [refreshCount, setRefreshCount] = useState(0);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Derive entry from storage whenever the route id changes.
-  const entry = useMemo(
-    () => (id ? getLyricsEntry(id) : null),
-    [id]
+  // Read entry from storage; re-reads whenever id or refreshCount changes.
+  const [entry, setEntry] = useState<LyricsEntry | null>(
+    () => (id ? getLyricsEntry(id) : null)
   );
+
+  useEffect(() => {
+    setEntry(id ? getLyricsEntry(id) : null);
+  }, [id, refreshCount]);
 
   // Scroll chat to bottom when chat history grows.
   const chatLength = entry?.chatHistory.length ?? 0;
@@ -46,12 +98,54 @@ export default function LyricsGenerator() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatLength]);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!guardAction()) return;
-    // TODO (US-010): send message to LLM client and update entry
-    setMessage("");
-  }
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      const trimmed = message.trim();
+      if (!trimmed || isLoading) return;
+      // Check API key first so modal shows even when there is no active entry.
+      if (!guardAction()) return;
+      if (!id) return;
+
+      const currentEntry = getLyricsEntry(id);
+      if (!currentEntry) return;
+
+      const userMessage: ChatMessage = { role: "user", content: trimmed };
+      const updatedHistory: ChatMessage[] = [
+        ...currentEntry.chatHistory,
+        userMessage,
+      ];
+
+      // Persist the user message immediately so it shows before the response.
+      updateLyricsEntry(id, { chatHistory: updatedHistory });
+      setMessage("");
+      setRefreshCount((c) => c + 1);
+      setIsLoading(true);
+
+      try {
+        const settings = getSettings();
+        const client = createLLMClient(settings?.poeApiKey ?? undefined);
+        const responseText = await client.chat(updatedHistory);
+
+        const assistantMessage: ChatMessage = {
+          role: "assistant",
+          content: responseText,
+        };
+        const finalHistory: ChatMessage[] = [...updatedHistory, assistantMessage];
+
+        // Parse frontmatter from the assistant response and update the entry.
+        const parsed = parseLyricsResponse(responseText);
+        updateLyricsEntry(id, {
+          chatHistory: finalHistory,
+          ...(parsed ?? {}),
+        });
+      } finally {
+        setIsLoading(false);
+        setRefreshCount((c) => c + 1);
+      }
+    },
+    [message, id, isLoading, guardAction]
+  );
 
   function handleGenerateSongs() {
     if (!id) return;
@@ -146,6 +240,15 @@ export default function LyricsGenerator() {
                 </div>
               ))
             )}
+            {isLoading && (
+              <div
+                className="rounded-md px-3 py-2 text-sm max-w-[85%] bg-muted animate-pulse"
+                data-testid="chat-loading"
+                aria-label="Claude is thinking…"
+              >
+                Claude is thinking…
+              </div>
+            )}
             <div ref={chatEndRef} />
           </div>
 
@@ -161,11 +264,12 @@ export default function LyricsGenerator() {
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Type a message…"
               aria-label="Chat message"
-              className="flex-1 border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              disabled={isLoading}
+              className="flex-1 border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               data-testid="chat-input"
             />
-            <Button type="submit" data-testid="chat-submit">
-              Send
+            <Button type="submit" disabled={isLoading} data-testid="chat-submit">
+              {isLoading ? "Sending…" : "Send"}
             </Button>
           </form>
         </section>

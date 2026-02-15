@@ -1,12 +1,18 @@
 /**
  * Tests for US-009: Lyrics Generator layout and frontmatter display.
+ * Tests for US-010: Claude chat integration in Lyrics Generator.
  *
- * Verifies that:
+ * US-009 verifies that:
  * - Left panel displays YAML frontmatter (title, style, commentary) and lyrics body
  * - Right panel contains scrollable message history and a text input with send button
  * - "Generate Songs" button is present at the bottom of the page
  * - Clicking "Generate Songs" navigates to the Song Generator for the current entry
  * - Screenshot test with seeded fixture data
+ *
+ * US-010 verifies that:
+ * - Submitting a message calls llmClient.chat() and response updates the left panel
+ * - A loading indicator is shown while awaiting the response
+ * - Chat history is persisted to localStorage and survives a reload
  *
  * State is seeded via storageService.import() — the same code path as the
  * real Settings import UI.
@@ -126,3 +132,92 @@ test(
     ).toBeVisible();
   }
 );
+
+// ────────────────────────────────────────────────────────────────────────────
+// US-010: Claude chat integration
+// ────────────────────────────────────────────────────────────────────────────
+
+test.describe("Lyrics Generator – chat integration (US-010)", () => {
+  test.beforeEach(async ({ page }) => {
+    await seedFixture(page, baseFixture);
+    await page.goto("/lyrics/fixture-entry-1");
+  });
+
+  test("submitting a message shows it in the chat history and the left panel updates with MockLLMClient fixture lyrics", async ({
+    page,
+  }) => {
+    const input = page.getByTestId("chat-input");
+    const submitBtn = page.getByTestId("chat-submit");
+
+    await input.fill("Make it more energetic");
+    await submitBtn.click();
+
+    // User message should appear immediately.
+    const userMessages = page.getByTestId("chat-message-user");
+    await expect(userMessages.last()).toContainText("Make it more energetic");
+
+    // Wait for the assistant response (MockLLMClient adds ~200 ms delay).
+    const assistantMessages = page.getByTestId("chat-message-assistant");
+    await expect(assistantMessages.last()).toBeVisible({ timeout: 5000 });
+
+    // The fixture response contains "Sunday Gold" — the left panel should reflect it.
+    await expect(page.getByTestId("lyrics-title")).toContainText("Sunday Gold", {
+      timeout: 5000,
+    });
+  });
+
+  test("a loading indicator is shown while awaiting the response", async ({
+    page,
+  }) => {
+    const input = page.getByTestId("chat-input");
+    await input.fill("Make it more energetic");
+
+    // Submit and immediately check for loading state.
+    await page.getByTestId("chat-submit").click();
+
+    // The loading bubble appears while the mock delay runs.
+    await expect(page.getByTestId("chat-loading")).toBeVisible({ timeout: 2000 });
+
+    // After the response arrives the loading bubble is gone.
+    await expect(page.getByTestId("chat-loading")).not.toBeVisible({
+      timeout: 5000,
+    });
+  });
+
+  test("chat history persists to localStorage and survives a reload", async ({
+    page,
+  }) => {
+    // Submit a message and wait for the assistant response to appear.
+    await page.getByTestId("chat-input").fill("Make it more energetic");
+    await page.getByTestId("chat-submit").click();
+
+    // Wait for the assistant reply.
+    const assistantMessages = page.getByTestId("chat-message-assistant");
+    await expect(assistantMessages.last()).toBeVisible({ timeout: 5000 });
+
+    // Reload the page.
+    await page.reload();
+
+    // The full chat history should still be present after reload.
+    const userMsgs = page.getByTestId("chat-message-user");
+    await expect(userMsgs.last()).toContainText("Make it more energetic");
+    await expect(page.getByTestId("chat-message-assistant").last()).toBeVisible();
+  });
+
+  test("input is disabled and send button shows 'Sending…' while loading", async ({
+    page,
+  }) => {
+    const input = page.getByTestId("chat-input");
+    const submitBtn = page.getByTestId("chat-submit");
+
+    await input.fill("Make it more energetic");
+    await submitBtn.click();
+
+    // While the mock is running the input and button should be disabled.
+    await expect(input).toBeDisabled({ timeout: 2000 });
+    await expect(submitBtn).toBeDisabled({ timeout: 2000 });
+
+    // After response, inputs are re-enabled.
+    await expect(input).not.toBeDisabled({ timeout: 5000 });
+  });
+});
