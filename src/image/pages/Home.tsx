@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ImageIcon, Pin, Settings, Bug } from "lucide-react";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { Button } from "@/shared/components/ui/button";
@@ -39,10 +39,26 @@ async function handleImageReportBug() {
   await navigator.clipboard.writeText(JSON.stringify(entries, null, 2));
 }
 
+const EXAMPLE_PROMPTS = [
+  "A serene mountain landscape at golden hour with misty valleys",
+  "A futuristic cityscape at night with neon reflections on wet streets",
+  "A cozy cabin interior with a fireplace and snow falling outside",
+  "An underwater coral reef scene with tropical fish and sunlight rays",
+];
+
 export default function ImageHome() {
   const [prompt, setPrompt] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const navigate = useNavigate();
+
+  // Load the 2 most recent sessions for returning users.
+  const recentSessions = imageStorageService
+    .listSessions()
+    .sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1))
+    .slice(0, 2);
+
+  const hasHistory = recentSessions.length > 0;
+  const visibleExamples = hasHistory ? EXAMPLE_PROMPTS.slice(0, 2) : EXAMPLE_PROMPTS;
 
   // Auto-focus the textarea on mount
   useEffect(() => {
@@ -104,6 +120,47 @@ export default function ImageHome() {
           </Button>
         </div>
       </form>
+
+      {/* Recent sessions — only shown when the user has previous work */}
+      {hasHistory && (
+        <div className="mt-10 w-full max-w-xl">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+            Recent sessions
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {recentSessions.map((session) => (
+              <Link
+                key={session.id}
+                to={`/image/sessions/${session.id}`}
+                className="rounded-lg border border-border bg-card px-4 py-3 hover:shadow-md hover:border-foreground/20 transition-all text-sm font-medium truncate text-foreground"
+                data-testid="recent-session-card"
+              >
+                {session.title}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Example prompts */}
+      <div className="mt-10 w-full max-w-xl">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+          Try an example
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {visibleExamples.map((example) => (
+            <button
+              key={example}
+              type="button"
+              onClick={() => setPrompt(example)}
+              className="text-left text-sm px-3 py-2.5 rounded-lg border border-border bg-card hover:bg-secondary/60 text-foreground transition-colors leading-snug"
+              data-testid="example-prompt-btn"
+            >
+              {example}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
