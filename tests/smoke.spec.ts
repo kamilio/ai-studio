@@ -7,7 +7,7 @@ test("home page loads with empty state seeded via storageService.import", async 
   await seedFixture(page, emptyFixture);
 
   await page.goto("/");
-  await expect(page.getByText("Song Builder")).toBeVisible();
+  await expect(page.getByPlaceholder("What song do you want to make?")).toBeVisible();
 
   // Verify the import actually ran by confirming storage is empty
   const exported = await page.evaluate(() => window.storageService.export());
