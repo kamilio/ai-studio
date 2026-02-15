@@ -5,7 +5,7 @@
  * - POE_API_KEY input saves to localStorage on submit and is pre-filled on reload
  * - numSongs input saves to localStorage on submit
  * - Export button downloads JSON data
- * - "Include API keys in export" checkbox controls poeApiKey presence in export
+ * - "Include API key in export" checkbox controls poeApiKey presence in export
  * - Import button accepts a JSON file and restores all seeded data
  * - Screenshot test with seeded fixture data
  *
@@ -24,7 +24,7 @@ import { baseFixture, emptyFixture } from "../fixtures/index";
 test.describe("Settings page", () => {
   test.beforeEach(async ({ page }) => {
     await seedFixture(page, emptyFixture);
-    await page.goto("/music/settings");
+    await page.goto("/settings");
   });
 
   test("save API key and reload: key is pre-filled", async ({ page }) => {
@@ -63,7 +63,7 @@ test.describe("Settings page", () => {
   test("settings form pre-fills from localStorage when seeded", async ({ page }) => {
     // Seed base fixture which has poeApiKey and numSongs: 3
     await seedFixture(page, baseFixture);
-    await page.goto("/music/settings");
+    await page.goto("/settings");
     await expect(page.getByLabel("POE API Key")).toHaveValue("test-poe-api-key");
     await expect(page.getByLabel("Songs to generate")).toHaveValue("3");
   });
@@ -73,10 +73,10 @@ test.describe("Settings: export / import", () => {
   test("export → import round-trip restores all seeded data", async ({ page }) => {
     // Seed base fixture (has entry + song + settings)
     await seedFixture(page, baseFixture);
-    await page.goto("/music/settings");
+    await page.goto("/settings");
 
-    // Check "Include API keys in export" so the key is preserved in the exported file
-    await page.getByLabel("Include API keys in export").check();
+    // Check "Include API key in export" so the key is preserved in the exported file
+    await page.getByLabel("Include API key in export").check();
 
     // Start watching for the download
     const downloadPromise = page.waitForEvent("download");
@@ -117,10 +117,10 @@ test.describe("Settings: export / import", () => {
 
   test("export without include API keys omits poeApiKey", async ({ page }) => {
     await seedFixture(page, baseFixture);
-    await page.goto("/music/settings");
+    await page.goto("/settings");
 
-    // Leave "Include API keys in export" unchecked (default)
-    await expect(page.getByLabel("Include API keys in export")).not.toBeChecked();
+    // Leave "Include API key in export" unchecked (default)
+    await expect(page.getByLabel("Include API key in export")).not.toBeChecked();
 
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export Data" }).click();
@@ -137,9 +137,9 @@ test.describe("Settings: export / import", () => {
 
   test("export with include API keys preserves poeApiKey", async ({ page }) => {
     await seedFixture(page, baseFixture);
-    await page.goto("/music/settings");
+    await page.goto("/settings");
 
-    await page.getByLabel("Include API keys in export").check();
+    await page.getByLabel("Include API key in export").check();
 
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export Data" }).click();
@@ -158,7 +158,7 @@ test.describe("Settings: export / import", () => {
 test.describe("Settings: Reset Memory", () => {
   test.beforeEach(async ({ page }) => {
     await seedFixture(page, baseFixture);
-    await page.goto("/music/settings");
+    await page.goto("/settings");
   });
 
   test("Reset Memory button is present", async ({ page }) => {
@@ -205,7 +205,7 @@ test.describe("Settings: Reset Memory", () => {
 test("@screenshot:settings settings page renders correctly with seeded data", async ({
   page,
 }) => {
-  await screenshotPage(page, "/music/settings", baseFixture, {
+  await screenshotPage(page, "/settings", baseFixture, {
     path: "screenshots/settings.png",
   });
 
@@ -215,5 +215,5 @@ test("@screenshot:settings settings page renders correctly with seeded data", as
   await expect(page.getByLabel("Songs to generate")).toBeVisible();
   await expect(page.getByRole("button", { name: "Export Data" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Import Data" })).toBeVisible();
-  await expect(page.getByLabel("Include API keys in export")).toBeVisible();
+  await expect(page.getByLabel("Include API key in export")).toBeVisible();
 });

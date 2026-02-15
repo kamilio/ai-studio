@@ -163,7 +163,7 @@ test.describe("US-013: Error feedback — import", () => {
     page,
   }) => {
     await seedFixture(page, baseFixture);
-    await page.goto("/music/settings");
+    await page.goto("/settings");
 
     // Create a temp file with invalid JSON content
     const tmpFile = path.join(os.tmpdir(), `invalid-import-${Date.now()}.json`);
@@ -183,7 +183,7 @@ test.describe("US-013: Error feedback — import", () => {
     page,
   }) => {
     await seedFixture(page, emptyFixture);
-    await page.goto("/music/settings");
+    await page.goto("/settings");
 
     // Create a temp file that is valid JSON but wrong structure
     // importStorage throws if the structure is wrong
@@ -200,7 +200,7 @@ test.describe("US-013: Error feedback — import", () => {
 
   test("Settings: no error shown for successful import", async ({ page }) => {
     await seedFixture(page, emptyFixture);
-    await page.goto("/music/settings");
+    await page.goto("/settings");
 
     // Create a valid export file
     const validExport = JSON.stringify(baseFixture, null, 2);
@@ -222,7 +222,7 @@ test.describe("US-013: Error feedback — import", () => {
     page,
   }) => {
     await seedFixture(page, emptyFixture);
-    await page.goto("/music/settings");
+    await page.goto("/settings");
 
     const tmpFile = path.join(os.tmpdir(), `bad-import-timeout-${Date.now()}.json`);
     fs.writeFileSync(tmpFile, "bad json");

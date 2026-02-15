@@ -20,7 +20,7 @@ const PAGES_WITH_TOP_BAR = [
   "/music/lyrics",
   "/music/lyrics/new",
   "/music/pinned",
-  "/music/settings",
+  "/settings",
 ] as const;
 
 test.describe("Top-bar navigation (US-002)", () => {
@@ -74,7 +74,7 @@ test.describe("Top-bar navigation (US-002)", () => {
   });
 
   test("All Lyrics item navigates to /lyrics", async ({ page }) => {
-    await page.goto("/music/settings");
+    await page.goto("/settings");
     await page.getByTestId("nav-menu-trigger").click();
     await page.getByTestId("nav-menu-lyrics").click();
     await expect(page).toHaveURL("/music/lyrics");
@@ -91,7 +91,7 @@ test.describe("Top-bar navigation (US-002)", () => {
     await page.goto("/music/lyrics");
     await page.getByTestId("nav-menu-trigger").click();
     await page.getByTestId("nav-menu-settings").click();
-    await expect(page).toHaveURL("/music/settings");
+    await expect(page).toHaveURL("/settings");
   });
 
   test("Report Bug shows a stub toast and does not navigate", async ({ page }) => {

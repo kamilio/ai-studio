@@ -58,8 +58,8 @@ function useSegments(): Segment[] {
     return [{ label: "Pinned Songs" }];
   }
 
-  // /music/settings
-  if (pathname === "/music/settings") {
+  // /settings (or legacy /music/settings — redirect handles the latter)
+  if (pathname === "/settings" || pathname === "/music/settings") {
     return [{ label: "Settings" }];
   }
 

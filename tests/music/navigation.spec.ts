@@ -38,7 +38,7 @@ test.describe("Breadcrumb navigation (US-002)", () => {
   });
 
   test("/settings shows 'Settings' breadcrumb", async ({ page }) => {
-    await page.goto("/music/settings");
+    await page.goto("/settings");
     const breadcrumb = page.getByLabel("Breadcrumb");
     await expect(breadcrumb).toBeVisible();
     await expect(breadcrumb).toContainText("Settings");

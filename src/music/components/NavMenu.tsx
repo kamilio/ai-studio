@@ -64,7 +64,7 @@ export function NavMenu() {
     },
     {
       label: "Settings",
-      href: "/music/settings",
+      href: "/settings",
       icon: Settings,
       "data-testid": "nav-menu-settings",
     },

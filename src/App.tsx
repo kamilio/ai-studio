@@ -1,5 +1,5 @@
 import { ReactNode, useEffect } from "react";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Music, List, Pin, Settings as SettingsIcon, Bug } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Breadcrumb } from "@/music/components/Breadcrumb";
@@ -45,7 +45,7 @@ const MUSIC_NAV_ITEMS: MenuItem[] = [
   },
   {
     label: "Settings",
-    href: "/music/settings",
+    href: "/settings",
     icon: SettingsIcon,
     "data-testid": "nav-menu-settings",
   },
@@ -177,13 +177,14 @@ export default function App() {
           }
         />
         <Route
-          path="/music/settings"
+          path="/settings"
           element={
             <PageLayout>
               <Settings />
             </PageLayout>
           }
         />
+        <Route path="/music/settings" element={<Navigate to="/settings" replace />} />
       </Routes>
     </BrowserRouter>
   );

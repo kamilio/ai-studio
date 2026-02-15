@@ -56,7 +56,7 @@ export default function Settings() {
   function handleResetConfirm() {
     resetStorage();
     localStorage.clear();
-    navigate("/music");
+    navigate("/");
   }
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {

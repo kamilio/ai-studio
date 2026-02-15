@@ -41,7 +41,7 @@ export function ApiKeyMissingModal({ onClose }: ApiKeyMissingModalProps) {
             Cancel
           </Button>
           <Button asChild>
-            <Link to="/music/settings" onClick={onClose}>
+            <Link to="/settings" onClick={onClose}>
               Go to Settings
             </Link>
           </Button>

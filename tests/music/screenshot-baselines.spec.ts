@@ -294,7 +294,7 @@ test(
   "@screenshot:settings settings desktop baseline",
   async ({ page }) => {
     await page.setViewportSize(DESKTOP);
-    await gotoSeeded(page, "/music/settings", baseFixture);
+    await gotoSeeded(page, "/settings", baseFixture);
 
     await expect(
       page.getByRole("heading", { name: "Settings" })
@@ -312,7 +312,7 @@ test(
   "@screenshot:settings settings mobile baseline",
   async ({ page }) => {
     await page.setViewportSize(MOBILE);
-    await gotoSeeded(page, "/music/settings", baseFixture);
+    await gotoSeeded(page, "/settings", baseFixture);
 
     await expect(
       page.getByRole("heading", { name: "Settings" })

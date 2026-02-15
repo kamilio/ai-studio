@@ -24,7 +24,7 @@ const HOME_NAV_ITEMS: MenuItem[] = [
   },
   {
     label: "Settings",
-    href: "/music/settings",
+    href: "/settings",
     icon: Settings,
     "data-testid": "nav-menu-settings",
   },

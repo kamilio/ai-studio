@@ -276,7 +276,7 @@ test.describe("Mobile QA — all 20 flows at 375×812 (US-016)", () => {
   // ── Flow 16: Settings page at mobile ──────────────────────────────────────
 
   test("QA-16: Settings page renders correctly at mobile width", async ({ page }) => {
-    await mobileGoto(page, "/music/settings", baseFixture);
+    await mobileGoto(page, "/settings", baseFixture);
 
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
     await expect(page.getByLabel("POE API Key")).toBeVisible();
