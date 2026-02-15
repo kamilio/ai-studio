@@ -1,9 +1,11 @@
 import { useState, useRef, type ChangeEvent, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   getSettings,
   saveSettings,
   exportStorage,
   importStorage,
+  resetStorage,
 } from "@/lib/storage/storageService";
 
 function loadInitialSettings() {
@@ -16,10 +18,12 @@ function loadInitialSettings() {
 
 export default function Settings() {
   const initial = loadInitialSettings();
+  const navigate = useNavigate();
   const [apiKey, setApiKey] = useState(initial.apiKey);
   const [numSongs, setNumSongs] = useState(initial.numSongs);
   const [includeApiKey, setIncludeApiKey] = useState(false);
   const [savedMessage, setSavedMessage] = useState("");
+  const [showResetDialog, setShowResetDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -46,6 +50,12 @@ export default function Settings() {
 
   function handleImportClick() {
     fileInputRef.current?.click();
+  }
+
+  function handleResetConfirm() {
+    resetStorage();
+    localStorage.clear();
+    navigate("/");
   }
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
@@ -118,6 +128,52 @@ export default function Settings() {
           <p className="text-sm text-green-600">{savedMessage}</p>
         )}
       </form>
+
+      <div className="mt-8 space-y-4 border-t pt-6">
+        <h2 className="text-lg font-semibold">Danger Zone</h2>
+
+        <button
+          type="button"
+          onClick={() => setShowResetDialog(true)}
+          className="inline-flex items-center justify-center rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground shadow hover:bg-destructive/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          Reset Memory
+        </button>
+      </div>
+
+      {showResetDialog && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reset-dialog-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+        >
+          <div className="bg-background rounded-lg shadow-lg p-6 max-w-sm w-full mx-4 space-y-4">
+            <h2 id="reset-dialog-title" className="text-lg font-semibold">
+              Reset Memory
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              This will permanently delete all lyrics, songs, and settings. This cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowResetDialog(false)}
+                className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleResetConfirm}
+                className="inline-flex items-center justify-center rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground shadow hover:bg-destructive/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                Confirm Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-8 space-y-4 border-t pt-6">
         <h2 className="text-lg font-semibold">Import / Export</h2>

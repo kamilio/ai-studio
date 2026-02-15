@@ -155,6 +155,53 @@ test.describe("Settings: export / import", () => {
   });
 });
 
+test.describe("Settings: Reset Memory", () => {
+  test.beforeEach(async ({ page }) => {
+    await seedFixture(page, baseFixture);
+    await page.goto("/settings");
+  });
+
+  test("Reset Memory button is present", async ({ page }) => {
+    await expect(page.getByRole("button", { name: "Reset Memory" })).toBeVisible();
+  });
+
+  test("clicking Reset Memory opens confirmation dialog with exact warning text", async ({ page }) => {
+    await page.getByRole("button", { name: "Reset Memory" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(
+      page.getByText(
+        "This will permanently delete all lyrics, songs, and settings. This cannot be undone."
+      )
+    ).toBeVisible();
+  });
+
+  test("cancelling dialog dismisses it without clearing data", async ({ page }) => {
+    await page.getByRole("button", { name: "Reset Memory" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByRole("dialog")).not.toBeVisible();
+
+    // Data should still be intact
+    const stored = await page.evaluate(() => window.storageService.export());
+    expect(stored.messages.length).toBeGreaterThan(0);
+  });
+
+  test("confirming reset clears localStorage and redirects to /", async ({ page }) => {
+    await page.getByRole("button", { name: "Reset Memory" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    await page.getByRole("button", { name: "Confirm Reset" }).click();
+
+    // Should redirect to /
+    await page.waitForURL("/");
+
+    // localStorage should be empty
+    const allKeys = await page.evaluate(() => Object.keys(localStorage));
+    expect(allKeys).toHaveLength(0);
+  });
+});
+
 test("@screenshot:settings settings page renders correctly with seeded data", async ({
   page,
 }) => {

@@ -187,6 +187,16 @@ export function pinSong(id: string, pinned: boolean): boolean {
   return result !== null;
 }
 
+// ─── Reset ────────────────────────────────────────────────────────────────────
+
+/**
+ * Wipe all app-owned localStorage keys.
+ * Equivalent to localStorage.clear() scoped to the known keys.
+ */
+export function resetStorage(): void {
+  Object.values(KEYS).forEach((key) => localStorage.removeItem(key));
+}
+
 // ─── Import / Export ──────────────────────────────────────────────────────────
 
 export function exportStorage(): StorageExport {
@@ -233,4 +243,6 @@ export const storageService = {
   // Import / Export
   export: exportStorage,
   import: importStorage,
+  // Reset
+  reset: resetStorage,
 };

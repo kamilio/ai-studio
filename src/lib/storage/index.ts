@@ -18,4 +18,5 @@ export {
   pinSong,
   exportStorage,
   importStorage,
+  resetStorage,
 } from "./storageService";
