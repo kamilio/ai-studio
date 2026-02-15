@@ -14,7 +14,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Pin } from "lucide-react";
-import { Button } from "@/music/components/ui/button";
+import { Button } from "@/shared/components/ui/button";
 import { getSongs, getMessages, pinSong } from "@/music/lib/storage/storageService";
 import type { Song } from "@/music/lib/storage/types";
 import { log } from "@/music/lib/actionLog";

@@ -15,7 +15,7 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
-import { Button } from "@/music/components/ui/button";
+import { Button } from "@/shared/components/ui/button";
 import { LyricsItemCard } from "@/music/components/LyricsItemCard";
 import {
   getMessages,

@@ -1,7 +1,7 @@
 import { useState, FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Textarea } from "@/music/components/ui/textarea";
-import { Button } from "@/music/components/ui/button";
+import { Textarea } from "@/shared/components/ui/textarea";
+import { Button } from "@/shared/components/ui/button";
 import { LyricsItemCard } from "@/music/components/LyricsItemCard";
 import { storageService } from "@/music/lib/storage";
 import { NavMenu } from "@/music/components/NavMenu";

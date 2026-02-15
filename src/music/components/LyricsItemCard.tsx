@@ -16,7 +16,7 @@ import { useState } from "react";
 import type React from "react";
 import { useNavigate } from "react-router-dom";
 import { Trash2 } from "lucide-react";
-import { Button } from "@/music/components/ui/button";
+import { Button } from "@/shared/components/ui/button";
 import { getSongsByMessage } from "@/music/lib/storage/storageService";
 import type { Message } from "@/music/lib/storage/types";
 

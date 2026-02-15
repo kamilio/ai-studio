@@ -24,7 +24,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Zap, Music } from "lucide-react";
-import { Button } from "@/music/components/ui/button";
+import { Button } from "@/shared/components/ui/button";
 import { ApiKeyMissingModal } from "@/music/components/ApiKeyMissingModal";
 import { useApiKeyGuard } from "@/music/hooks/useApiKeyGuard";
 import {
