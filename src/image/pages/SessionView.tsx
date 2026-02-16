@@ -1,5 +1,5 @@
 /**
- * SessionView page (US-007, US-014, US-015, US-016, US-017, US-018, US-021, US-022, US-023, US-025)
+ * SessionView page (US-007, US-014, US-015, US-016, US-017, US-018, US-021, US-022, US-023, US-025, US-027)
  *
  * Route: /image/sessions/:id
  *
@@ -74,7 +74,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
-import { ImageIcon, LayoutList, Loader2, Pin, PinOff, Settings, Bug, Download, RefreshCw } from "lucide-react";
+import { ImageIcon, LayoutList, Loader2, Maximize2, Pin, PinOff, Settings, Bug, Download, RefreshCw } from "lucide-react";
 import { useElapsedTimer } from "@/shared/hooks/useElapsedTimer";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { Button } from "@/shared/components/ui/button";
@@ -92,6 +92,7 @@ import { IMAGE_MODELS } from "@/image/lib/imageModels";
 import { downloadBlob } from "@/shared/lib/downloadBlob";
 import type { ImageModelDef } from "@/image/lib/imageModels";
 import { usePoeBalanceContext } from "@/shared/context/PoeBalanceContext";
+import { FullscreenImageViewer } from "@/image/components/FullscreenImageViewer";
 
 // ─── Download helper (US-023) ──────────────────────────────────────────────
 
@@ -435,6 +436,11 @@ interface ImageCardProps {
    * is disabled.
    */
   isRegenerating?: boolean;
+  /**
+   * US-027: Called when the user clicks the image (or the fullscreen button)
+   * to open the fullscreen viewer with this image active.
+   */
+  onOpenFullscreen?: (item: ImageItem) => void;
 }
 
 /**
@@ -449,7 +455,7 @@ interface ImageCardProps {
  * The Pin button visually distinguishes pinned (filled icon + tinted background)
  * from unpinned (outline icon) state.
  */
-function ImageCard({ item, index, sessionTitle, onPinToggle, onRegenerate, isRegenerating }: ImageCardProps) {
+function ImageCard({ item, index, sessionTitle, onPinToggle, onRegenerate, isRegenerating, onOpenFullscreen }: ImageCardProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const elapsed = useElapsedTimer(isRegenerating ?? false);
 
@@ -492,11 +498,14 @@ function ImageCard({ item, index, sessionTitle, onPinToggle, onRegenerate, isReg
       className="relative rounded-lg overflow-hidden border bg-card shadow-sm"
       data-testid="image-card"
     >
+      {/* US-027: Clicking the image opens the fullscreen viewer */}
       <img
         src={item.url}
         alt=""
-        className="w-full h-auto block"
+        className={`w-full h-auto block${onOpenFullscreen ? " cursor-zoom-in" : ""}`}
         style={{ maxWidth: "320px" }}
+        onClick={onOpenFullscreen ? () => onOpenFullscreen(item) : undefined}
+        aria-label={onOpenFullscreen ? "Open fullscreen" : undefined}
       />
       <div className="absolute bottom-2 right-2 flex gap-1">
         {/* Pin toggle button (US-024) */}
@@ -544,6 +553,18 @@ function ImageCard({ item, index, sessionTitle, onPinToggle, onRegenerate, isReg
             Regen
           </button>
         )}
+        {/* Fullscreen button (US-027) */}
+        {onOpenFullscreen && (
+          <button
+            type="button"
+            onClick={() => onOpenFullscreen(item)}
+            aria-label="Open fullscreen viewer"
+            data-testid="fullscreen-btn"
+            className="flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-xs font-medium shadow hover:bg-background hover:shadow-md transition-all"
+          >
+            <Maximize2 className="h-3 w-3" aria-hidden="true" />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -584,6 +605,10 @@ interface MainPaneProps {
    * Used to show the spinner card for each in-flight regeneration.
    */
   regeneratingItemIds?: Set<string>;
+  /**
+   * US-027: Called when the user clicks an image to open the fullscreen viewer.
+   */
+  onOpenFullscreen?: (item: ImageItem) => void;
 }
 
 /**
@@ -595,7 +620,7 @@ interface MainPaneProps {
  * US-025: Passes onRegenerateItem and regeneratingItemIds to each ImageCard
  * so the Regenerate button and per-item spinner work without affecting siblings.
  */
-function MainPane({ generations, items, sessionTitle, skeletonCount, slotResults, onPinToggle, onRetrySlot, onRegenerateItem, regeneratingItemIds }: MainPaneProps) {
+function MainPane({ generations, items, sessionTitle, skeletonCount, slotResults, onPinToggle, onRetrySlot, onRegenerateItem, regeneratingItemIds, onOpenFullscreen }: MainPaneProps) {
   // While generation is in-flight, show skeleton placeholders (US-021).
   if (skeletonCount !== undefined && skeletonCount > 0) {
     return (
@@ -629,6 +654,7 @@ function MainPane({ generations, items, sessionTitle, skeletonCount, slotResults
               onPinToggle={onPinToggle}
               onRegenerate={onRegenerateItem}
               isRegenerating={regeneratingItemIds?.has(slot.item.id)}
+              onOpenFullscreen={onOpenFullscreen}
             />
           ) : (
             <ErrorCard
@@ -693,6 +719,7 @@ function MainPane({ generations, items, sessionTitle, skeletonCount, slotResults
           onPinToggle={onPinToggle}
           onRegenerate={onRegenerateItem}
           isRegenerating={regeneratingItemIds?.has(item.id)}
+          onOpenFullscreen={onOpenFullscreen}
         />
       ))}
     </div>
@@ -756,6 +783,10 @@ export default function SessionView() {
   // Each regeneration is independent; adding/removing an id does not affect other cards.
   const [regeneratingItemIds, setRegeneratingItemIds] = useState<Set<string>>(new Set());
 
+  // US-027: The ImageItem currently shown in the fullscreen viewer.
+  // null means the viewer is closed.
+  const [viewerItem, setViewerItem] = useState<ImageItem | null>(null);
+
   // Selected image model (US-004): default to the first model in the list.
   const [selectedModel, setSelectedModel] = useState<ImageModelDef>(IMAGE_MODELS[0]);
 
@@ -799,6 +830,16 @@ export default function SessionView() {
     log({ category: "user:action", action: "image:new-session", data: {} });
     navigate("/image");
   }, [navigate]);
+
+  /** US-027: Opens the fullscreen viewer for the given image. */
+  const handleOpenFullscreen = useCallback((item: ImageItem) => {
+    setViewerItem(item);
+  }, []);
+
+  /** US-027: Closes the fullscreen viewer. */
+  const handleCloseFullscreen = useCallback(() => {
+    setViewerItem(null);
+  }, []);
 
   /**
    * Toggles the pinned state of an ImageItem (US-024).
@@ -1186,7 +1227,7 @@ export default function SessionView() {
             aria-label="Generated images"
             data-testid="main-pane"
           >
-            <MainPane generations={data.generations} items={data.items} sessionTitle={data.session.title} skeletonCount={skeletonCount} slotResults={slotResults} onPinToggle={handlePinToggle} onRetrySlot={handleRetrySlot} onRegenerateItem={handleRegenerateItem} regeneratingItemIds={regeneratingItemIds} />
+            <MainPane generations={data.generations} items={data.items} sessionTitle={data.session.title} skeletonCount={skeletonCount} slotResults={slotResults} onPinToggle={handlePinToggle} onRetrySlot={handleRetrySlot} onRegenerateItem={handleRegenerateItem} regeneratingItemIds={regeneratingItemIds} onOpenFullscreen={handleOpenFullscreen} />
           </main>
 
           {/* ── Thumbnail panel (desktop right panel) ──────────────────── */}
@@ -1302,6 +1343,15 @@ export default function SessionView() {
       </div>
     </div>
     {isApiKeyModalOpen && <ApiKeyMissingModal onClose={closeApiKeyModal} onProceed={proceedApiKey} />}
+    {/* US-027: Fullscreen image viewer — rendered outside the scroll container so it covers the full viewport */}
+    {viewerItem && data.items.filter((i) => !i.deleted).length > 0 && (
+      <FullscreenImageViewer
+        allItems={data.items}
+        generations={data.generations}
+        initialItem={viewerItem}
+        onClose={handleCloseFullscreen}
+      />
+    )}
     </>
   );
 }
