@@ -42,7 +42,16 @@ function getSession(id: string): ImageSession | null {
 }
 
 function listSessions(): ImageSession[] {
-  return getSessions();
+  return getSessions().filter((s) => !s.deleted);
+}
+
+function deleteSession(id: string): boolean {
+  const sessions = getSessions();
+  const idx = sessions.findIndex((s) => s.id === id);
+  if (idx === -1) return false;
+  sessions[idx] = { ...sessions[idx], deleted: true };
+  writeJSON(KEYS.sessions, sessions);
+  return true;
 }
 
 function createSession(prompt: string): ImageSession {
@@ -191,6 +200,7 @@ export const imageStorageService = {
   createSession,
   getSession,
   listSessions,
+  deleteSession,
   // Generations
   createGeneration,
   getGenerationsBySession,

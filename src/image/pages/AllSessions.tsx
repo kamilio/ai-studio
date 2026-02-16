@@ -8,11 +8,16 @@
  * and links to /image/sessions/:id.
  *
  * Layout: same TopBar and NavMenu as other image pages.
+ *
+ * US-005: After deleting a session the row is removed from the list
+ * immediately without requiring navigation. The delete handler calls
+ * imageStorageService.deleteSession (soft-delete) and then removes the
+ * entry from local state so the list re-renders instantly.
  */
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { ImageIcon, LayoutList, Pin, Settings, Bug } from "lucide-react";
+import { ImageIcon, LayoutList, Pin, Settings, Bug, Trash2 } from "lucide-react";
 import { NavMenu } from "@/shared/components/NavMenu";
 import type { MenuItem } from "@/shared/components/NavMenu";
 import { imageStorageService } from "@/image/lib/storage";
@@ -75,7 +80,12 @@ function TopBar() {
 
 // ─── SessionRow ────────────────────────────────────────────────────────────
 
-function SessionRow({ session }: { session: ImageSession }) {
+interface SessionRowProps {
+  session: ImageSession;
+  onDelete: (id: string) => void;
+}
+
+function SessionRow({ session, onDelete }: SessionRowProps) {
   const formatted = new Date(session.createdAt).toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
@@ -83,14 +93,27 @@ function SessionRow({ session }: { session: ImageSession }) {
   });
 
   return (
-    <Link
-      to={`/image/sessions/${session.id}`}
+    <div
       className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3 hover:shadow-md hover:border-foreground/20 transition-all"
       data-testid="session-list-item"
     >
-      <span className="text-sm font-medium truncate text-foreground">{session.title}</span>
-      <span className="text-xs text-muted-foreground shrink-0 ml-4">{formatted}</span>
-    </Link>
+      <Link
+        to={`/image/sessions/${session.id}`}
+        className="flex items-center justify-between flex-1 min-w-0 gap-4"
+      >
+        <span className="text-sm font-medium truncate text-foreground">{session.title}</span>
+        <span className="text-xs text-muted-foreground shrink-0">{formatted}</span>
+      </Link>
+      <button
+        type="button"
+        onClick={() => onDelete(session.id)}
+        aria-label={`Delete session: ${session.title}`}
+        data-testid="delete-session-btn"
+        className="ml-3 shrink-0 flex items-center justify-center rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+      >
+        <Trash2 className="h-4 w-4" aria-hidden="true" />
+      </button>
+    </div>
   );
 }
 
@@ -98,11 +121,20 @@ function SessionRow({ session }: { session: ImageSession }) {
 
 export default function AllSessions() {
   // Load all non-deleted sessions on mount, sorted newest-first.
-  const [sessions] = useState<ImageSession[]>(() =>
+  const [sessions, setSessions] = useState<ImageSession[]>(() =>
     imageStorageService
       .listSessions()
       .sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1))
   );
+
+  /**
+   * Soft-deletes the session from storage and removes it from local state
+   * immediately so the list updates without requiring navigation (US-005).
+   */
+  const handleDelete = useCallback((id: string) => {
+    imageStorageService.deleteSession(id);
+    setSessions((prev) => prev.filter((s) => s.id !== id));
+  }, []);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -139,7 +171,7 @@ export default function AllSessions() {
             data-testid="session-list"
           >
             {sessions.map((session) => (
-              <SessionRow key={session.id} session={session} />
+              <SessionRow key={session.id} session={session} onDelete={handleDelete} />
             ))}
           </div>
         )}

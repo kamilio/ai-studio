@@ -4,6 +4,8 @@ export interface ImageSession {
   /** Full prompt text as entered by the user. Optional for backward compat with existing stored sessions. */
   prompt?: string;
   createdAt: string;
+  /** Soft-delete flag. Optional for backward compat with existing stored sessions. */
+  deleted?: boolean;
 }
 
 export interface ImageGeneration {
