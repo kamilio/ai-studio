@@ -50,6 +50,7 @@ function createSession(prompt: string): ImageSession {
   const session: ImageSession = {
     id: generateId(),
     title,
+    prompt,
     createdAt: new Date().toISOString(),
   };
   const sessions = getSessions();

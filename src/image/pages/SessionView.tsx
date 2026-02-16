@@ -598,10 +598,11 @@ export default function SessionView() {
   const [data, setData] = useState<SessionData | null>(() => loadSession(id));
 
   // Prompt text — pre-populated with the latest generation's prompt (US-018).
-  // Falls back to the session title (set by Home) on a fresh session with no
-  // generations yet. Never cleared programmatically: the user owns the value.
+  // Falls back to session.prompt (full text) then session.title (truncated) on
+  // a fresh session with no generations yet. Never cleared programmatically:
+  // the user owns the value.
   const [prompt, setPrompt] = useState<string>(() =>
-    latestPrompt(data?.generations ?? []) || data?.session.title || ""
+    latestPrompt(data?.generations ?? []) || data?.session.prompt || data?.session.title || ""
   );
 
   // True while a generateImage call is in-flight (disables Generate button).

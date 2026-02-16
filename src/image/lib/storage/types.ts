@@ -1,6 +1,8 @@
 export interface ImageSession {
   id: string;
   title: string;
+  /** Full prompt text as entered by the user. Optional for backward compat with existing stored sessions. */
+  prompt?: string;
   createdAt: string;
 }
 
