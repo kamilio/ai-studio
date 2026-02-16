@@ -64,14 +64,14 @@ function TopBar() {
       data-testid="top-bar"
     >
       <Link
-        to="/image"
+        to="/"
         className="flex items-center gap-2 shrink-0 hover:opacity-75 transition-opacity"
-        aria-label="Image Generator home"
+        aria-label="Studio home"
       >
         <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center shrink-0">
           <ImageIcon className="h-3.5 w-3.5 text-primary-foreground" aria-hidden="true" />
         </div>
-        <span className="font-semibold text-sm hidden sm:inline">Image Generator</span>
+        <span className="font-semibold text-sm hidden sm:inline">Studio</span>
       </Link>
 
       <NavMenu items={IMAGE_NAV_ITEMS} onReportBug={handleReportBug} />

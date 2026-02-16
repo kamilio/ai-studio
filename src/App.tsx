@@ -80,7 +80,7 @@ function TopBar() {
     >
       {/* Branding */}
       <Link
-        to="/music"
+        to="/"
         className="flex items-center gap-2 shrink-0 hover:opacity-75 transition-opacity"
         aria-label="Studio home"
       >
