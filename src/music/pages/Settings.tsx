@@ -12,6 +12,31 @@ import {
   saveImageSettings,
 } from "@/image/lib/storage/storageService";
 
+const MODELS_CACHE_KEY = "song-builder:poe-models";
+
+interface ModelsCache {
+  key: string;
+  models: { id: string; label: string }[];
+}
+
+function readModelsCache(): ModelsCache | null {
+  try {
+    const raw = localStorage.getItem(MODELS_CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as ModelsCache;
+  } catch {
+    return null;
+  }
+}
+
+function writeModelsCache(key: string, models: { id: string; label: string }[]): void {
+  try {
+    localStorage.setItem(MODELS_CACHE_KEY, JSON.stringify({ key, models }));
+  } catch {
+    // Ignore storage errors (quota exceeded, private browsing, etc.)
+  }
+}
+
 function loadInitialSettings() {
   const settings = getSettings();
   const imageSettings = getImageSettings();
@@ -21,6 +46,13 @@ function loadInitialSettings() {
     chatModel: settings?.chatModel ?? "",
     numImages: imageSettings?.numImages ?? 3,
   };
+}
+
+function loadCachedModels(apiKey: string): { id: string; label: string }[] {
+  if (!apiKey) return [];
+  const cache = readModelsCache();
+  if (cache && cache.key === apiKey) return cache.models;
+  return [];
 }
 
 export default function Settings() {
@@ -36,49 +68,66 @@ export default function Settings() {
   const [showResetDialog, setShowResetDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Chat model list fetched from POE V1 API
-  const [chatModels, setChatModels] = useState<{ id: string; label: string }[]>([]);
+  // Chat model list fetched from POE V1 API, pre-populated from cache
+  const [chatModels, setChatModels] = useState<{ id: string; label: string }[]>(
+    () => loadCachedModels(initial.apiKey)
+  );
   const [chatModelError, setChatModelError] = useState("");
 
+  // Track which API key was last successfully fetched so we can skip redundant requests
+  const fetchedForKeyRef = useRef<string>(
+    // If the cache already covers the initial key, mark it as already fetched
+    loadCachedModels(initial.apiKey).length > 0 ? initial.apiKey : ""
+  );
+
   useEffect(() => {
-    if (!apiKey) return;
+    // Skip fetch if the key is empty or was already fetched for this exact key
+    if (!apiKey || fetchedForKeyRef.current === apiKey) return;
 
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    // Debounce: wait 600ms after the user stops typing before fetching
+    const timer = setTimeout(() => {
+      // Re-check inside the timeout in case the key changed again
+      if (fetchedForKeyRef.current === apiKey) return;
 
-    let cancelled = false;
-    fetch("https://api.poe.com/v1/models", {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json() as Promise<{
-          data: Array<{
-            id: string;
-            created: number;
-            price_per_input_token?: number;
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+      fetchedForKeyRef.current = apiKey;
+
+      fetch("https://api.poe.com/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json() as Promise<{
+            data: Array<{
+              id: string;
+              created: number;
+              price_per_input_token?: number;
+            }>;
           }>;
-        }>;
-      })
-      .then((body) => {
-        if (cancelled) return;
-        const filtered = (body.data ?? [])
-          .filter((m) => {
-            const createdAt = new Date(m.created * 1000);
-            const pricePerMillion = (m.price_per_input_token ?? 0) * 1_000_000;
-            return createdAt >= sixMonthsAgo && pricePerMillion < 2.0;
-          })
-          .map((m) => ({ id: m.id, label: m.id }));
-        setChatModels(filtered);
-        setChatModelError("");
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setChatModelError("Failed to load models. Your saved model is preserved.");
-      });
+        })
+        .then((body) => {
+          const filtered = (body.data ?? [])
+            .filter((m) => {
+              const createdAt = new Date(m.created * 1000);
+              const pricePerMillion = (m.price_per_input_token ?? 0) * 1_000_000;
+              return createdAt >= sixMonthsAgo && pricePerMillion < 2.0;
+            })
+            .map((m) => ({ id: m.id, label: m.id }));
+          setChatModels(filtered);
+          setChatModelError("");
+          writeModelsCache(apiKey, filtered);
+        })
+        .catch(() => {
+          // Reset fetchedForKey so a retry is possible on the same key
+          fetchedForKeyRef.current = "";
+          setChatModelError("Failed to load models. Your saved model is preserved.");
+        });
+    }, 600);
 
     return () => {
-      cancelled = true;
+      clearTimeout(timer);
     };
   }, [apiKey]);
 
