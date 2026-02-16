@@ -54,13 +54,13 @@ export class PoeLLMClient implements LLMClient {
     return audioUrl;
   }
 
-  async generateImage(prompt: string, count = 3): Promise<string[]> {
+  async generateImage(prompt: string, count = 3, model?: string, extraBody?: Record<string, unknown>): Promise<string[]> {
     const makeRequest = async (): Promise<string> => {
       const response = await this.client.chat.completions.create({
-        model: "nano-banana",
+        model: model ?? "nano-banana",
         messages: [{ role: "user", content: prompt }],
         // @ts-expect-error extra_body is a Poe-specific extension not in the OpenAI types
-        extra_body: { image_only: true },
+        extra_body: { ...extraBody },
       });
       const content = response.choices[0]?.message?.content;
       if (!content) throw new Error("nano-banana returned an empty response");

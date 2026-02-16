@@ -46,7 +46,8 @@ export class MockLLMClient implements LLMClient {
     return parsed.audioUrl;
   }
 
-  async generateImage(_prompt: string, count = 3): Promise<string[]> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async generateImage(_prompt: string, count = 3, _model?: string, _extraBody?: Record<string, unknown>): Promise<string[]> {
     await this.delay();
     const urls: string[] = [];
     for (let i = 0; i < count; i++) {
