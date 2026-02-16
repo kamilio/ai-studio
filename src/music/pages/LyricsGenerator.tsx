@@ -705,7 +705,9 @@ export default function LyricsGenerator() {
     >
       <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-5 pb-4 border-b">Chat</h2>
       {ChatHistory}
-      {ChatForm}
+      <div className="sticky bottom-0 bg-background pt-2 shrink-0">
+        {ChatForm}
+      </div>
     </section>
   );
 
