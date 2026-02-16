@@ -162,30 +162,32 @@ test.describe("Mobile QA — all 20 flows at 375×812 (US-016)", () => {
     await assertTouchTarget(page, '[data-testid="tab-chat"]');
   });
 
-  // ── Flow 7: Lyrics List hides Style column on mobile ──────────────────────
+  // ── Flow 7: Lyrics List renders cards on mobile ───────────────────────────
 
-  test("QA-07: Lyrics List hides Style column at mobile width", async ({ page }) => {
+  test("QA-07: Lyrics List renders cards correctly at mobile width", async ({ page }) => {
     await mobileGoto(page, "/music/lyrics", multiEntryFixture);
 
-    await expect(page.getByRole("heading", { name: "Lyrics List" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Lyrics" })).toBeVisible();
 
-    // Style column header hidden
-    await expect(page.getByRole("columnheader", { name: "Style" })).toBeHidden();
-
-    // Rows still present and tappable
-    await expect(page.getByRole("cell", { name: "Morning Pop", exact: true })).toBeVisible();
+    // Cards still present and visible
+    await expect(
+      page.getByTestId("card-title").filter({ hasText: "Morning Pop" })
+    ).toBeVisible();
 
     // No horizontal scroll
     await assertNoHorizontalScroll(page);
   });
 
-  // ── Flow 8: Lyrics List row tap navigates to Lyrics Editor ─────────────────
+  // ── Flow 8: Lyrics List card tap navigates to Lyrics Editor ────────────────
 
-  test("QA-08: Lyrics List row tap navigates to Lyrics Editor on mobile", async ({ page }) => {
+  test("QA-08: Lyrics List card tap navigates to Lyrics Editor on mobile", async ({ page }) => {
     await mobileGoto(page, "/music/lyrics", multiEntryFixture);
 
-    // Tap a row
-    await page.getByRole("cell", { name: "Morning Pop", exact: true }).click();
+    // Tap a card
+    await page
+      .getByTestId("lyrics-item-card")
+      .filter({ hasText: "Morning Pop" })
+      .click();
 
     await expect(page).toHaveURL(/\/music\/lyrics\/fixture-multi-entry-1a/);
     await expect(page.getByTestId("mobile-tab-bar")).toBeVisible();

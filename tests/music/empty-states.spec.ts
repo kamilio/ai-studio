@@ -22,7 +22,7 @@ import * as os from "os";
 // ─── Empty States ────────────────────────────────────────────────────────────
 
 test.describe("US-013: Empty states", () => {
-  test("LyricsList: empty state renders with link to home when no lyrics exist", async ({
+  test("LyricsList: empty state renders with link to music home when no lyrics exist", async ({
     page,
   }) => {
     await seedFixture(page, emptyFixture);
@@ -30,18 +30,18 @@ test.describe("US-013: Empty states", () => {
 
     const emptyEl = page.getByTestId("lyrics-list-empty");
     await expect(emptyEl).toBeVisible();
-    await expect(emptyEl).toContainText("No lyrics yet.");
-    // Link back to home
-    const homeLink = page.getByRole("link", { name: /Start a new song from home/ });
+    await expect(emptyEl).toContainText("No lyrics yet");
+    // Link to start a new song
+    const homeLink = page.getByRole("link", { name: /Start a new song/ });
     await expect(homeLink).toBeVisible();
-    await expect(homeLink).toHaveAttribute("href", "/");
+    await expect(homeLink).toHaveAttribute("href", "/music");
   });
 
-  test("LyricsList: clicking home link navigates to /", async ({ page }) => {
+  test("LyricsList: clicking start new song link navigates to /music", async ({ page }) => {
     await seedFixture(page, emptyFixture);
     await page.goto("/music/lyrics");
-    await page.getByRole("link", { name: /Start a new song from home/ }).click();
-    await expect(page).toHaveURL("/");
+    await page.getByRole("link", { name: /Start a new song/ }).click();
+    await expect(page).toHaveURL("/music");
   });
 
   test("SongsView: empty state shown when no songs and a message exists", async ({
