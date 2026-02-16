@@ -16,7 +16,7 @@ import { Music, ImageIcon } from "lucide-react";
 export default function SharedHome() {
   const { pathname } = useLocation();
 
-  const musicActive = pathname.startsWith("/music") || pathname === "/";
+  const musicActive = pathname.startsWith("/music");
   const imageActive = pathname.startsWith("/image");
 
   const tabBase =
@@ -53,8 +53,8 @@ export default function SharedHome() {
         <Link
           to="/music"
           data-testid="tab-music"
-          className={`${tabBase} ${musicActive && !imageActive ? activeTab : inactiveTab}`}
-          aria-current={musicActive && !imageActive ? "page" : undefined}
+          className={`${tabBase} ${musicActive ? activeTab : inactiveTab}`}
+          aria-current={musicActive ? "page" : undefined}
         >
           <Music className="h-4 w-4 shrink-0" aria-hidden="true" />
           Music

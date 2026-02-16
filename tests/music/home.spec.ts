@@ -29,13 +29,10 @@ test.describe("Shared home page — tab switcher (US-009)", () => {
     await expect(imageTab).toHaveAttribute("href", "/image");
   });
 
-  test("Music tab is active (aria-current=page) when at /", async ({ page }) => {
+  test("neither tab has aria-current=page when at / (both equal, US-016)", async ({ page }) => {
     const musicTab = page.getByTestId("tab-music");
-    await expect(musicTab).toHaveAttribute("aria-current", "page");
-  });
-
-  test("Image tab is not active when at /", async ({ page }) => {
     const imageTab = page.getByTestId("tab-image");
+    await expect(musicTab).not.toHaveAttribute("aria-current", "page");
     await expect(imageTab).not.toHaveAttribute("aria-current", "page");
   });
 
