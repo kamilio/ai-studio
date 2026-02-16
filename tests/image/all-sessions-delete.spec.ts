@@ -1,9 +1,12 @@
 /**
  * Tests for US-005: AllSessions stale state after deletion.
+ * Updated for US-012: delete now requires confirmation via ConfirmDialog.
  *
  * Verifies that:
  * - Each session row renders a delete button.
- * - Clicking the delete button removes the session from the list immediately.
+ * - Clicking the delete button opens a confirmation dialog.
+ * - Cancelling the dialog leaves the session intact.
+ * - Confirming the dialog removes the session from the list immediately.
  * - No page navigation is required for the list to reflect the deletion.
  * - Sibling sessions are unaffected by the deletion.
  * - When the last session is deleted the empty state is shown.
@@ -54,20 +57,45 @@ test.describe("AllSessions delete (US-005)", () => {
     await expect(deleteBtns).toHaveCount(3);
   });
 
+  test("delete shows confirmation dialog before removing session", async ({ page }) => {
+    await expect(page.getByTestId("session-list-item")).toHaveCount(3);
+
+    // Click delete — dialog should appear
+    await page.getByTestId("delete-session-btn").first().click();
+    await expect(page.getByTestId("confirm-dialog")).toBeVisible();
+
+    // Sessions still intact while dialog is open
+    await expect(page.getByTestId("session-list-item")).toHaveCount(3);
+  });
+
+  test("cancelling confirmation leaves session unchanged", async ({ page }) => {
+    await page.getByTestId("delete-session-btn").first().click();
+    await expect(page.getByTestId("confirm-dialog")).toBeVisible();
+
+    // Cancel
+    await page.getByTestId("confirm-dialog-cancel").click();
+    await expect(page.getByTestId("confirm-dialog")).not.toBeVisible();
+
+    // All sessions still present
+    await expect(page.getByTestId("session-list-item")).toHaveCount(3);
+  });
+
   test("deleting a session removes it from the list immediately", async ({ page }) => {
     await expect(page.getByTestId("session-list-item")).toHaveCount(3);
 
-    // Delete the first row (Alpha session — newest first)
+    // Delete the first row (Alpha session — newest first) — click delete then confirm
     const firstDeleteBtn = page.getByTestId("delete-session-btn").first();
     await firstDeleteBtn.click();
+    await page.getByTestId("confirm-dialog-confirm").click();
 
     // List should now have 2 items without any navigation
     await expect(page.getByTestId("session-list-item")).toHaveCount(2);
   });
 
   test("sibling sessions remain visible after deletion", async ({ page }) => {
-    // Delete Alpha (first/top)
+    // Delete Alpha (first/top) — click delete then confirm
     await page.getByTestId("delete-session-btn").first().click();
+    await page.getByTestId("confirm-dialog-confirm").click();
 
     // Beta and Gamma should still be present
     await expect(page.getByText("Beta session")).toBeVisible();
@@ -78,18 +106,22 @@ test.describe("AllSessions delete (US-005)", () => {
   });
 
   test("shows empty state after all sessions are deleted", async ({ page }) => {
-    const deleteBtns = page.getByTestId("delete-session-btn");
+    // Delete all three sessions (each requires a confirm step)
+    await page.getByTestId("delete-session-btn").first().click();
+    await page.getByTestId("confirm-dialog-confirm").click();
 
-    // Delete all three sessions
-    await deleteBtns.first().click();
-    await deleteBtns.first().click();
-    await deleteBtns.first().click();
+    await page.getByTestId("delete-session-btn").first().click();
+    await page.getByTestId("confirm-dialog-confirm").click();
+
+    await page.getByTestId("delete-session-btn").first().click();
+    await page.getByTestId("confirm-dialog-confirm").click();
 
     await expect(page.getByTestId("all-sessions-empty")).toBeVisible();
   });
 
   test("deleted session is not restored after page reload", async ({ page }) => {
     await page.getByTestId("delete-session-btn").first().click();
+    await page.getByTestId("confirm-dialog-confirm").click();
     await expect(page.getByTestId("session-list-item")).toHaveCount(2);
 
     // Reload the page — the deleted session must not reappear

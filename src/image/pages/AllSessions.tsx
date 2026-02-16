@@ -20,6 +20,7 @@ import { Link } from "react-router-dom";
 import { ImageIcon, LayoutList, Pin, Settings, Bug, Trash2 } from "lucide-react";
 import { NavMenu } from "@/shared/components/NavMenu";
 import type { MenuItem } from "@/shared/components/NavMenu";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { imageStorageService } from "@/image/lib/storage";
 import type { ImageSession } from "@/image/lib/storage";
 import { useReportBug } from "@/shared/hooks/useReportBug";
@@ -127,13 +128,27 @@ export default function AllSessions() {
       .sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1))
   );
 
+  // Session ID pending deletion confirmation; null when no dialog is open.
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
+  /** Open the delete confirmation dialog for a session. */
+  const handleDelete = useCallback((id: string) => {
+    setPendingDeleteId(id);
+  }, []);
+
   /**
    * Soft-deletes the session from storage and removes it from local state
    * immediately so the list updates without requiring navigation (US-005).
    */
-  const handleDelete = useCallback((id: string) => {
-    imageStorageService.deleteSession(id);
-    setSessions((prev) => prev.filter((s) => s.id !== id));
+  const handleDeleteConfirm = useCallback(() => {
+    if (pendingDeleteId === null) return;
+    imageStorageService.deleteSession(pendingDeleteId);
+    setSessions((prev) => prev.filter((s) => s.id !== pendingDeleteId));
+    setPendingDeleteId(null);
+  }, [pendingDeleteId]);
+
+  const handleDeleteCancel = useCallback(() => {
+    setPendingDeleteId(null);
   }, []);
 
   return (
@@ -176,6 +191,15 @@ export default function AllSessions() {
           </div>
         )}
       </main>
+
+      {pendingDeleteId !== null && (
+        <ConfirmDialog
+          title="Delete session?"
+          description="This will permanently remove this image session. This cannot be undone."
+          onConfirm={handleDeleteConfirm}
+          onCancel={handleDeleteCancel}
+        />
+      )}
     </div>
   );
 }

@@ -102,6 +102,40 @@ test.describe("Per-song actions (US-012)", () => {
     expect(unpinnedSong?.pinned).toBe(false);
   });
 
+  test("delete: shows confirmation dialog before deleting", async ({
+    page,
+  }) => {
+    await seedFixture(page, songGeneratorFixture);
+    await page.goto("/music/songs?messageId=fixture-msg-songs-a");
+
+    // 3 songs visible initially
+    await expect(page.getByTestId("song-item")).toHaveCount(3);
+
+    // Click delete button — dialog should appear
+    await page.getByTestId("song-delete-btn").first().click();
+    await expect(page.getByTestId("confirm-dialog")).toBeVisible();
+
+    // Songs still intact while dialog is open
+    await expect(page.getByTestId("song-item")).toHaveCount(3);
+  });
+
+  test("delete: cancelling confirmation leaves song unchanged", async ({
+    page,
+  }) => {
+    await seedFixture(page, songGeneratorFixture);
+    await page.goto("/music/songs?messageId=fixture-msg-songs-a");
+
+    await page.getByTestId("song-delete-btn").first().click();
+    await expect(page.getByTestId("confirm-dialog")).toBeVisible();
+
+    // Cancel the dialog
+    await page.getByTestId("confirm-dialog-cancel").click();
+    await expect(page.getByTestId("confirm-dialog")).not.toBeVisible();
+
+    // Song should still be present
+    await expect(page.getByTestId("song-item")).toHaveCount(3);
+  });
+
   test("delete: sets deleted flag to true in localStorage", async ({
     page,
   }) => {
@@ -111,8 +145,9 @@ test.describe("Per-song actions (US-012)", () => {
     // 3 songs visible initially
     await expect(page.getByTestId("song-item")).toHaveCount(3);
 
-    // Delete the first song
+    // Delete the first song — click delete then confirm
     await page.getByTestId("song-delete-btn").first().click();
+    await page.getByTestId("confirm-dialog-confirm").click();
 
     // Song should be hidden from the list
     await expect(page.getByTestId("song-item")).toHaveCount(2);
@@ -135,6 +170,7 @@ test.describe("Per-song actions (US-012)", () => {
     await page.goto("/music/songs?messageId=fixture-msg-songs-a");
 
     await page.getByTestId("song-delete-btn").first().click();
+    await page.getByTestId("confirm-dialog-confirm").click();
 
     // Song should still exist in localStorage, just with deleted: true
     const songs = await page.evaluate(() => {
@@ -156,12 +192,14 @@ test.describe("Per-song actions (US-012)", () => {
 
     await expect(page.getByTestId("song-item")).toHaveCount(3);
 
-    // Delete the first song (after deletion, there are 2 remaining)
+    // Delete the first song (click delete then confirm)
     await page.getByTestId("song-delete-btn").first().click();
+    await page.getByTestId("confirm-dialog-confirm").click();
     await expect(page.getByTestId("song-item")).toHaveCount(2);
 
     // Delete the next first song
     await page.getByTestId("song-delete-btn").first().click();
+    await page.getByTestId("confirm-dialog-confirm").click();
     await expect(page.getByTestId("song-item")).toHaveCount(1);
   });
 

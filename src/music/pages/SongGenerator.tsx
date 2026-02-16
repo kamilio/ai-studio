@@ -26,6 +26,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Zap, Music } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { ApiKeyMissingModal } from "@/shared/components/ApiKeyMissingModal";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { useApiKeyGuard } from "@/shared/hooks/useApiKeyGuard";
 import {
   getMessage,
@@ -101,6 +102,9 @@ export default function SongGenerator() {
   const [songOverrides, setSongOverrides] = useState<
     Map<string, Partial<Song>>
   >(new Map());
+
+  // Song pending deletion confirmation; null when no dialog is open.
+  const [pendingDeleteSong, setPendingDeleteSong] = useState<Song | null>(null);
 
   // All songs to display: stored baseline + new songs added this session.
   const songs = useMemo(() => {
@@ -210,8 +214,16 @@ export default function SongGenerator() {
     });
   }, []);
 
-  /** Soft-delete a song; hides it from the list immediately. */
+  /** Open the delete confirmation dialog for a song. */
   const handleDelete = useCallback((song: Song) => {
+    setPendingDeleteSong(song);
+  }, []);
+
+  /** Execute the soft-delete after the user confirms. */
+  const handleDeleteConfirm = useCallback(() => {
+    if (!pendingDeleteSong) return;
+    const song = pendingDeleteSong;
+    setPendingDeleteSong(null);
     deleteSong(song.id);
     log({
       category: "user:action",
@@ -223,6 +235,11 @@ export default function SongGenerator() {
       next.set(song.id, { ...next.get(song.id), deleted: true });
       return next;
     });
+  }, [pendingDeleteSong]);
+
+  /** Cancel the delete confirmation dialog. */
+  const handleDeleteCancel = useCallback(() => {
+    setPendingDeleteSong(null);
   }, []);
 
   /**
@@ -374,6 +391,15 @@ export default function SongGenerator() {
       )}
 
       {isModalOpen && <ApiKeyMissingModal onClose={closeModal} />}
+
+      {pendingDeleteSong !== null && (
+        <ConfirmDialog
+          title="Delete song?"
+          description="This will permanently remove this song. This cannot be undone."
+          onConfirm={handleDeleteConfirm}
+          onCancel={handleDeleteCancel}
+        />
+      )}
     </div>
   );
 }

@@ -16,6 +16,7 @@ import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { LyricsItemCard } from "@/music/components/LyricsItemCard";
 import {
   getMessages,
@@ -31,6 +32,8 @@ export default function LyricsList() {
     () => getMessages().filter((m) => m.role === "assistant" && !m.deleted)
   );
   const [search, setSearch] = React.useState("");
+  // ID of the lyrics entry pending deletion confirmation; null when no dialog is open.
+  const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(null);
 
   function reloadEntries() {
     setAllEntries(getMessages().filter((m) => m.role === "assistant" && !m.deleted));
@@ -46,10 +49,20 @@ export default function LyricsList() {
       })
     : allEntries;
 
-  function handleDelete(e: React.MouseEvent, id: string) {
+  function handleDeleteRequest(e: React.MouseEvent, id: string) {
     e.stopPropagation();
-    updateMessage(id, { deleted: true });
+    setPendingDeleteId(id);
+  }
+
+  function handleDeleteConfirm() {
+    if (pendingDeleteId === null) return;
+    updateMessage(pendingDeleteId, { deleted: true });
+    setPendingDeleteId(null);
     reloadEntries();
+  }
+
+  function handleDeleteCancel() {
+    setPendingDeleteId(null);
   }
 
   return (
@@ -107,11 +120,20 @@ export default function LyricsList() {
             <div key={entry.id} data-testid="lyrics-list-item">
               <LyricsItemCard
                 message={entry}
-                onDelete={(e) => handleDelete(e, entry.id)}
+                onDelete={(e) => handleDeleteRequest(e, entry.id)}
               />
             </div>
           ))}
         </div>
+      )}
+
+      {pendingDeleteId !== null && (
+        <ConfirmDialog
+          title="Delete lyrics?"
+          description="This will permanently remove these lyrics. This cannot be undone."
+          onConfirm={handleDeleteConfirm}
+          onCancel={handleDeleteCancel}
+        />
       )}
     </div>
   );

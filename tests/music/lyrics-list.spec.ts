@@ -107,26 +107,63 @@ test.describe("Lyrics List page", () => {
     await expect(page).toHaveURL(/\/music\/lyrics\/fixture-multi-entry-1a$/);
   });
 
-  test("soft-delete removes entry from table", async ({ page }) => {
-    // Both entries visible before delete
-    await expect(
-      page.getByRole("cell", { name: "Morning Pop", exact: true })
-    ).toBeVisible();
-    await expect(
-      page.getByRole("cell", { name: "Midnight Jazz", exact: true })
-    ).toBeVisible();
-
-    // Click the delete button for "Morning Pop"
+  test("soft-delete shows confirmation dialog before deleting", async ({
+    page,
+  }) => {
+    // Click the delete button for "Morning Pop" — dialog should appear
     await page
       .getByRole("button", { name: "Delete Morning Pop" })
       .click();
+    await expect(page.getByTestId("confirm-dialog")).toBeVisible();
+
+    // Entry still visible while dialog is open
+    await expect(
+      page.getByRole("listitem").filter({ hasText: "Morning Pop" })
+    ).toBeVisible();
+  });
+
+  test("soft-delete cancelling confirmation leaves entry unchanged", async ({
+    page,
+  }) => {
+    await page
+      .getByRole("button", { name: "Delete Morning Pop" })
+      .click();
+    await expect(page.getByTestId("confirm-dialog")).toBeVisible();
+
+    // Cancel
+    await page.getByTestId("confirm-dialog-cancel").click();
+    await expect(page.getByTestId("confirm-dialog")).not.toBeVisible();
+
+    // Both entries still present
+    await expect(
+      page.getByRole("listitem").filter({ hasText: "Morning Pop" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("listitem").filter({ hasText: "Midnight Jazz" })
+    ).toBeVisible();
+  });
+
+  test("soft-delete removes entry from table", async ({ page }) => {
+    // Both entries visible before delete
+    await expect(
+      page.getByRole("listitem").filter({ hasText: "Morning Pop" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("listitem").filter({ hasText: "Midnight Jazz" })
+    ).toBeVisible();
+
+    // Click the delete button for "Morning Pop" then confirm
+    await page
+      .getByRole("button", { name: "Delete Morning Pop" })
+      .click();
+    await page.getByTestId("confirm-dialog-confirm").click();
 
     // Morning Pop should be gone; Midnight Jazz still visible
     await expect(
-      page.getByRole("cell", { name: "Morning Pop", exact: true })
+      page.getByRole("listitem").filter({ hasText: "Morning Pop" })
     ).not.toBeVisible();
     await expect(
-      page.getByRole("cell", { name: "Midnight Jazz", exact: true })
+      page.getByRole("listitem").filter({ hasText: "Midnight Jazz" })
     ).toBeVisible();
 
     // Verify it is soft-deleted in storage (not hard-removed)
@@ -143,13 +180,14 @@ test.describe("Lyrics List page", () => {
   test("soft-delete persists after page reload — row still absent", async ({
     page,
   }) => {
-    // Delete Morning Pop
+    // Delete Morning Pop (click delete then confirm)
     await page
       .getByRole("button", { name: "Delete Morning Pop" })
       .click();
+    await page.getByTestId("confirm-dialog-confirm").click();
 
     await expect(
-      page.getByRole("cell", { name: "Morning Pop", exact: true })
+      page.getByRole("listitem").filter({ hasText: "Morning Pop" })
     ).not.toBeVisible();
 
     // Reload the page
@@ -157,10 +195,10 @@ test.describe("Lyrics List page", () => {
 
     // Morning Pop still absent after reload
     await expect(
-      page.getByRole("cell", { name: "Morning Pop", exact: true })
+      page.getByRole("listitem").filter({ hasText: "Morning Pop" })
     ).not.toBeVisible();
     await expect(
-      page.getByRole("cell", { name: "Midnight Jazz", exact: true })
+      page.getByRole("listitem").filter({ hasText: "Midnight Jazz" })
     ).toBeVisible();
   });
 
