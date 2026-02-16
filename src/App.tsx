@@ -8,6 +8,7 @@ import type { MenuItem } from "@/shared/components/NavMenu";
 import SharedHome from "@/shared/components/SharedHome";
 import Home from "@/music/pages/Home";
 import ImageHome from "@/image/pages/Home";
+import ImageAllSessions from "@/image/pages/AllSessions";
 import ImageSessionView from "@/image/pages/SessionView";
 import ImagePinnedImages from "@/image/pages/PinnedImages";
 import LyricsList from "@/music/pages/LyricsList";
@@ -132,6 +133,9 @@ export default function App() {
 
         {/* Image — Home has no top bar */}
         <Route path="/image" element={<ImageHome />} />
+
+        {/* Image — All sessions list (must be before :id route) */}
+        <Route path="/image/sessions" element={<ImageAllSessions />} />
 
         {/* Image — Session view */}
         <Route path="/image/sessions/:id" element={<ImageSessionView />} />
