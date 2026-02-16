@@ -29,6 +29,9 @@ interface NavMenuProps {
 }
 
 export function NavMenu({ items, onReportBug }: NavMenuProps) {
+  const visibleItems = import.meta.env.DEV
+    ? items
+    : items.filter((item) => !item.isReportBug);
   const [open, setOpen] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -92,7 +95,7 @@ export function NavMenu({ items, onReportBug }: NavMenuProps) {
           data-testid="nav-menu-dropdown"
           className="absolute right-0 top-11 z-50 min-w-[160px] rounded-md border bg-background shadow-md py-1"
         >
-          {items.map((item) => {
+          {visibleItems.map((item) => {
             const Icon = item.icon;
             const sharedClass =
               "flex items-center gap-2 w-full px-3 py-2 min-h-[44px] text-sm hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer text-left";
