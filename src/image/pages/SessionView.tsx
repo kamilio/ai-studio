@@ -1,5 +1,5 @@
 /**
- * SessionView page (US-014, US-015, US-016, US-017, US-018, US-021, US-022, US-023)
+ * SessionView page (US-007, US-014, US-015, US-016, US-017, US-018, US-021, US-022, US-023)
  *
  * Route: /image/sessions/:id
  *
@@ -67,7 +67,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
-import { ImageIcon, LayoutList, Pin, PinOff, Settings, Bug, Download } from "lucide-react";
+import { ImageIcon, LayoutList, Pin, PinOff, Settings, Bug, Download, RefreshCw } from "lucide-react";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { Button } from "@/shared/components/ui/button";
 import { NavMenu } from "@/shared/components/NavMenu";
@@ -336,8 +336,12 @@ function SkeletonCard() {
 /**
  * Inline error card shown for a single failed image slot (US-022).
  * Displayed at the same size as a real image card so the layout stays stable.
+ *
+ * US-007: Renders a Retry button that re-fires generation for this slot only.
+ * onRetry is called when the user clicks Retry; it is undefined while a retry
+ * is already in-flight so the button is hidden/disabled during that time.
  */
-function ErrorCard({ message }: { message: string }) {
+function ErrorCard({ message, onRetry, isRetrying }: { message: string; onRetry?: () => void; isRetrying?: boolean }) {
   return (
     <div
       className="rounded-lg overflow-hidden border bg-destructive/10 border-destructive/30 shadow-sm flex flex-col items-center justify-center gap-2 p-4"
@@ -346,6 +350,19 @@ function ErrorCard({ message }: { message: string }) {
     >
       <p className="text-destructive text-sm font-medium text-center">Image failed</p>
       <p className="text-destructive/80 text-xs text-center line-clamp-3">{message}</p>
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          disabled={isRetrying}
+          aria-label="Retry image generation"
+          data-testid="retry-btn"
+          className="flex items-center gap-1 rounded-md bg-destructive/20 hover:bg-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className="h-3 w-3" aria-hidden="true" />
+          {isRetrying ? "Retrying…" : "Retry"}
+        </button>
+      )}
     </div>
   );
 }
@@ -357,10 +374,14 @@ function ErrorCard({ message }: { message: string }) {
  * A slot is either a successfully stored item or a failed request with an
  * error message. Used to render per-slot error cards alongside sibling
  * images that succeeded.
+ *
+ * US-007: The error variant includes an optional `isRetrying` flag that is
+ * set to true while a retry for this specific slot is in-flight, so the
+ * Retry button can be disabled during that time.
  */
 type SlotResult =
   | { kind: "item"; item: ImageItem }
-  | { kind: "error"; message: string };
+  | { kind: "error"; message: string; isRetrying?: boolean };
 
 // ─── ImageCard (US-023) ────────────────────────────────────────────────────
 
@@ -462,6 +483,12 @@ interface MainPaneProps {
   slotResults?: SlotResult[];
   /** Called when the user clicks the Pin toggle on an image card (US-024). */
   onPinToggle: (item: ImageItem) => void;
+  /**
+   * US-007: Called when the user clicks Retry on an error card.
+   * Receives the 0-based slot index of the failed slot so only that slot
+   * is re-attempted without affecting sibling slots.
+   */
+  onRetrySlot?: (slotIndex: number) => void;
 }
 
 /**
@@ -470,7 +497,7 @@ interface MainPaneProps {
  * Shows per-slot error cards for failed slots (US-022).
  * Shows an empty state when no generations exist.
  */
-function MainPane({ generations, items, sessionTitle, skeletonCount, slotResults, onPinToggle }: MainPaneProps) {
+function MainPane({ generations, items, sessionTitle, skeletonCount, slotResults, onPinToggle, onRetrySlot }: MainPaneProps) {
   // While generation is in-flight, show skeleton placeholders (US-021).
   if (skeletonCount !== undefined && skeletonCount > 0) {
     return (
@@ -504,7 +531,12 @@ function MainPane({ generations, items, sessionTitle, skeletonCount, slotResults
               onPinToggle={onPinToggle}
             />
           ) : (
-            <ErrorCard key={`error-${i}`} message={slot.message} />
+            <ErrorCard
+              key={`error-${i}`}
+              message={slot.message}
+              isRetrying={slot.isRetrying}
+              onRetry={onRetrySlot ? () => onRetrySlot(i) : undefined}
+            />
           )
         )}
       </div>
@@ -794,6 +826,114 @@ export default function SessionView() {
     }
   }, [id, data, prompt, isGenerating, guardAction, selectedModel, remixFile]);
 
+  /**
+   * US-007: Retries a single failed image slot by index.
+   *
+   * Only the specified slot is re-attempted. Sibling slots are unaffected.
+   * While the retry is in-flight, the error card for that slot shows
+   * "Retrying…" and the Retry button is disabled. On success the error card
+   * is replaced by the generated image; on failure the error message is
+   * updated with the new error.
+   */
+  const handleRetrySlot = useCallback(async (slotIndex: number) => {
+    if (!id || !data) return;
+    // Guard: show modal and abort if no API key is configured.
+    if (!guardAction()) return;
+
+    const trimmed = prompt.trim();
+    if (!trimmed) return;
+
+    log({
+      category: "user:action",
+      action: "image:retry:start",
+      data: { sessionId: id, slotIndex },
+    });
+
+    // Mark this slot as retrying so the UI disables the Retry button.
+    setSlotResults((prev) => {
+      if (!prev) return prev;
+      return prev.map((slot, i) =>
+        i === slotIndex && slot.kind === "error"
+          ? { ...slot, isRetrying: true }
+          : slot
+      );
+    });
+
+    try {
+      const musicSettings = getSettings();
+      const client = createLLMClient(musicSettings?.poeApiKey ?? undefined);
+
+      // Find the generation that produced the current slotResults.
+      // The most recent generation (highest stepId) is the one we are retrying into.
+      const latestGeneration =
+        data.generations.length > 0
+          ? data.generations.reduce((best, g) =>
+              g.stepId > best.stepId ? g : best
+            )
+          : null;
+
+      if (!latestGeneration || !isMounted.current) return;
+
+      let remixImageBase64: string | undefined;
+      if (remixFile) {
+        remixImageBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = reader.result as string;
+            resolve(dataUrl.split(",")[1]);
+          };
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(remixFile);
+        });
+      }
+
+      const result = await client.generateImage(
+        trimmed,
+        1,
+        selectedModel.id,
+        selectedModel.extraBody,
+        remixImageBase64
+      );
+
+      if (!isMounted.current) return;
+
+      const url = result[0];
+      const item = imageStorageService.createItem({
+        generationId: latestGeneration.id,
+        url,
+      });
+
+      // Replace the error slot with the newly generated item.
+      const updated = loadSession(id);
+      if (isMounted.current) {
+        setData(updated);
+        setSlotResults((prev) => {
+          if (!prev) return prev;
+          return prev.map((slot, i) =>
+            i === slotIndex ? ({ kind: "item", item } as SlotResult) : slot
+          );
+        });
+      }
+    } catch (err) {
+      if (!isMounted.current) return;
+      const errMsg = err instanceof Error ? err.message : "Generation failed";
+      log({
+        category: "error",
+        action: "image:retry:error",
+        data: { sessionId: id, slotIndex, error: errMsg },
+      });
+      // Update the slot with the new error message and clear isRetrying.
+      setSlotResults((prev) => {
+        if (!prev) return prev;
+        return prev.map((slot, i) =>
+          i === slotIndex && slot.kind === "error"
+            ? { kind: "error", message: errMsg }
+            : slot
+        );
+      });
+    }
+  }, [id, data, prompt, guardAction, selectedModel, remixFile]);
+
   if (!data) {
     return <Navigate to="/image" replace />;
   }
@@ -824,7 +964,7 @@ export default function SessionView() {
             aria-label="Generated images"
             data-testid="main-pane"
           >
-            <MainPane generations={data.generations} items={data.items} sessionTitle={data.session.title} skeletonCount={skeletonCount} slotResults={slotResults} onPinToggle={handlePinToggle} />
+            <MainPane generations={data.generations} items={data.items} sessionTitle={data.session.title} skeletonCount={skeletonCount} slotResults={slotResults} onPinToggle={handlePinToggle} onRetrySlot={handleRetrySlot} />
           </main>
 
           {/* ── Thumbnail panel (desktop right panel) ──────────────────── */}

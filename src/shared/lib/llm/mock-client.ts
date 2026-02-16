@@ -18,7 +18,19 @@ const imageUrlFixtures: string[] = JSON.parse(imageUrlsRaw) as string[];
  *
  * Activated when VITE_USE_MOCK_LLM=true (set automatically by the
  * Playwright webServer config and `npm run dev:mock`).
+ *
+ * Testing hook: set `window.__mockLLMImageFailCount = N` in a Playwright test
+ * to make the next N generateImage calls throw an error. Each call decrements
+ * the counter. When it reaches 0, subsequent calls succeed normally.
+ * Used by retry-button tests to create failed slots.
  */
+
+declare global {
+  interface Window {
+    __mockLLMImageFailCount?: number;
+  }
+}
+
 export class MockLLMClient implements LLMClient {
   /** Simulated latency in milliseconds (default 200 ms). */
   private readonly delayMs: number;
@@ -49,6 +61,11 @@ export class MockLLMClient implements LLMClient {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async generateImage(_prompt: string, count = 3, _model?: string, _extraBody?: Record<string, unknown>, _remixImageBase64?: string): Promise<string[]> {
     await this.delay();
+    // Testing hook: decrement __mockLLMImageFailCount; if it was > 0, throw.
+    if (typeof window !== "undefined" && (window.__mockLLMImageFailCount ?? 0) > 0) {
+      window.__mockLLMImageFailCount = (window.__mockLLMImageFailCount ?? 1) - 1;
+      throw new Error("Mock image generation failure");
+    }
     const urls: string[] = [];
     for (let i = 0; i < count; i++) {
       urls.push(imageUrlFixtures[this.imageCallCount++ % imageUrlFixtures.length]);

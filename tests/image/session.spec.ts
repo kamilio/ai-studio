@@ -1,5 +1,5 @@
 /**
- * Tests for US-028: Playwright tests for session view and generation flow.
+ * Tests for US-028 and US-007: Playwright tests for session view and generation flow.
  *
  * Verifies that:
  * - Main pane shows only the latest-step images (highest stepId) — US-015
@@ -7,6 +7,7 @@
  * - Prompt textarea is pre-populated and persists after generation — US-018
  * - Skeleton loading cards are shown during generation — US-021
  * - New Session button navigates to /image with input auto-focused — US-019
+ * - Error cards show a Retry button that re-fires generation for that slot — US-007
  *
  * All tests run with VITE_USE_MOCK_LLM=true (configured in playwright.config.ts).
  * Storage is seeded via window.imageStorageService.import() through the helpers.
@@ -353,5 +354,101 @@ test.describe("Session view — generation flow integration", () => {
 
     // Main pane shows 3 image cards (from the new step 2)
     await expect(page.getByTestId("image-card")).toHaveCount(3);
+  });
+});
+
+// ── Retry button on error cards (US-007) ──────────────────────────────────────
+
+test.describe("Session view — retry button on failed image slots (US-007)", () => {
+  test.beforeEach(async ({ page }) => {
+    await seedImageFixture(page, imageBaseFixture);
+    // Seed music settings with API key so the guard passes
+    await page.evaluate(() => {
+      localStorage.setItem(
+        "song-builder:settings",
+        JSON.stringify({ poeApiKey: "test-key", numSongs: 3 })
+      );
+    });
+  });
+
+  test("error card renders a Retry button", async ({ page }) => {
+    await page.goto(`/image/sessions/${BASE_SESSION_ID}`);
+
+    // Make all 3 parallel generateImage calls fail
+    await page.evaluate(() => {
+      window.__mockLLMImageFailCount = 3;
+    });
+
+    await page.getByTestId("generate-btn").click();
+
+    // Wait for skeletons to disappear (generation finished with errors)
+    await expect(page.getByTestId("skeleton-card").first()).not.toBeVisible({
+      timeout: 5000,
+    });
+
+    // Error cards should be visible
+    await expect(page.getByTestId("image-error-card").first()).toBeVisible();
+
+    // Each error card should have a Retry button
+    const retryBtns = page.getByTestId("retry-btn");
+    await expect(retryBtns).toHaveCount(3);
+  });
+
+  test("clicking Retry re-fires generation for that slot only and replaces error with image", async ({ page }) => {
+    await page.goto(`/image/sessions/${BASE_SESSION_ID}`);
+
+    // Make all 3 parallel generateImage calls fail
+    await page.evaluate(() => {
+      window.__mockLLMImageFailCount = 3;
+    });
+
+    await page.getByTestId("generate-btn").click();
+
+    // Wait for skeletons to disappear
+    await expect(page.getByTestId("skeleton-card").first()).not.toBeVisible({
+      timeout: 5000,
+    });
+
+    // 3 error cards, 0 image cards
+    await expect(page.getByTestId("image-error-card")).toHaveCount(3);
+    await expect(page.getByTestId("image-card")).toHaveCount(0);
+
+    // Click Retry on the first error card — mock now succeeds (failCount is 0)
+    await page.getByTestId("retry-btn").first().click();
+
+    // Wait for the retry to complete: one error card replaced by an image card
+    await expect(page.getByTestId("image-card").first()).toBeVisible({ timeout: 5000 });
+
+    // Now 1 image card and 2 remaining error cards
+    await expect(page.getByTestId("image-card")).toHaveCount(1);
+    await expect(page.getByTestId("image-error-card")).toHaveCount(2);
+  });
+
+  test("sibling slots are unaffected when retrying one slot", async ({ page }) => {
+    await page.goto(`/image/sessions/${BASE_SESSION_ID}`);
+
+    // Fail all 3 slots initially
+    await page.evaluate(() => {
+      window.__mockLLMImageFailCount = 3;
+    });
+
+    await page.getByTestId("generate-btn").click();
+    await expect(page.getByTestId("skeleton-card").first()).not.toBeVisible({
+      timeout: 5000,
+    });
+
+    // All 3 slots errored
+    await expect(page.getByTestId("image-error-card")).toHaveCount(3);
+
+    // Retry only the first slot
+    await page.getByTestId("retry-btn").first().click();
+
+    // Wait for first slot to resolve
+    await expect(page.getByTestId("image-card").first()).toBeVisible({ timeout: 5000 });
+
+    // The other 2 slots remain as error cards (unaffected)
+    await expect(page.getByTestId("image-error-card")).toHaveCount(2);
+    // The first slot is now an image card
+    await expect(page.getByTestId("image-card")).toHaveCount(1);
   });
 });

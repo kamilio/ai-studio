@@ -7,12 +7,6 @@
  * - No page navigation is required for the list to reflect the deletion.
  * - Sibling sessions are unaffected by the deletion.
  * - When the last session is deleted the empty state is shown.
- *
- * Navigation uses the full /song-builder/ prefix because the Vite dev
- * server is configured with base: "/song-builder/" (vite.config.ts) and
- * the Playwright baseURL is "http://localhost:5173" (playwright.config.ts).
- * Absolute goto() paths therefore need the /song-builder prefix to reach
- * the actual app.
  */
 
 import { test, expect } from "@playwright/test";
@@ -41,18 +35,15 @@ const fixture: ImageStorageExport = {
   settings: null,
 };
 
-/** Vite base path; all absolute goto() paths must include this prefix. */
-const APP_BASE = "/song-builder";
-
 test.describe("AllSessions delete (US-005)", () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to the app root, clear localStorage, then seed fixture data.
-    await page.goto(`${APP_BASE}/`);
+    await page.goto("/");
     await page.evaluate(() => localStorage.clear());
     await page.evaluate((data: ImageStorageExport) => {
       window.imageStorageService.import(data);
     }, fixture);
-    await page.goto(`${APP_BASE}/image/sessions`);
+    await page.goto("/image/sessions");
   });
 
   test("each session row has a delete button", async ({ page }) => {
