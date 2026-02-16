@@ -37,6 +37,7 @@ import {
 } from "@/music/lib/storage/storageService";
 import type { Message, Song } from "@/music/lib/storage/types";
 import { createLLMClient } from "@/shared/lib/llm/factory";
+import { downloadBlob } from "@/shared/lib/downloadBlob";
 import { log } from "@/music/lib/actionLog";
 
 /** Build the style prompt sent to ElevenLabs from a message's lyrics fields. */
@@ -235,27 +236,7 @@ export default function SongGenerator() {
       action: "song:download",
       data: { songId: song.id },
     });
-    try {
-      const response = await fetch(song.audioUrl);
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = objectUrl;
-      a.download = `${song.title}.mp3`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(objectUrl);
-    } catch {
-      // If fetch fails (e.g. CORS or network), fall back to a direct link.
-      const a = document.createElement("a");
-      a.href = song.audioUrl;
-      a.download = `${song.title}.mp3`;
-      a.target = "_blank";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
+    await downloadBlob(song.audioUrl, `${song.title}.mp3`, true);
   }, []);
 
   // Merge local overrides into the songs list and filter out deleted ones.

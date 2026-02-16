@@ -80,6 +80,7 @@ import { createLLMClient } from "@/shared/lib/llm/factory";
 import { getSettings } from "@/music/lib/storage/storageService";
 import { log, getAll } from "@/music/lib/actionLog";
 import { IMAGE_MODELS } from "@/image/lib/imageModels";
+import { downloadBlob } from "@/shared/lib/downloadBlob";
 import type { ImageModelDef } from "@/image/lib/imageModels";
 
 // ─── Download helper (US-023) ──────────────────────────────────────────────
@@ -99,46 +100,22 @@ function sanitiseFilename(value: string): string {
 /**
  * Triggers a browser file download for the given image URL.
  *
- * Strategy: fetch the image as a Blob so the browser always prompts a
- * "Save As" dialog regardless of whether the URL is cross-origin (some
- * browsers ignore the `download` attribute for cross-origin links). A
- * temporary object URL is created from the Blob, clicked programmatically,
- * then immediately revoked to avoid memory leaks.
+ * Derives the file extension from the URL path (defaulting to .png) and
+ * delegates the fetch-blob-anchor-click pattern to the shared downloadBlob
+ * utility so the logic is not duplicated across the codebase.
  *
- * @param url     - Source image URL.
- * @param filename - Desired filename (without extension; .png appended if
- *                  the URL does not provide an obvious extension).
+ * @param url      - Source image URL.
+ * @param filename - Desired base filename (without extension).
  */
 async function downloadImage(url: string, filename: string): Promise<void> {
-  const response = await fetch(url);
-  const blob = await response.blob();
+  // Derive file extension from the URL, defaulting to .png.
+  const urlExt = url.split("?")[0].split(".").pop()?.toLowerCase();
+  const ext =
+    urlExt && ["jpg", "jpeg", "gif", "webp", "png"].includes(urlExt)
+      ? `.${urlExt}`
+      : ".png";
 
-  // Derive file extension from MIME type or URL, defaulting to .png.
-  let ext = ".png";
-  const mime = blob.type;
-  if (mime === "image/jpeg" || mime === "image/jpg") ext = ".jpg";
-  else if (mime === "image/gif") ext = ".gif";
-  else if (mime === "image/webp") ext = ".webp";
-  else {
-    // Fall back to the extension in the URL if present.
-    const urlExt = url.split("?")[0].split(".").pop()?.toLowerCase();
-    if (urlExt && ["jpg", "jpeg", "gif", "webp", "png"].includes(urlExt)) {
-      ext = `.${urlExt}`;
-    }
-  }
-
-  const objectUrl = URL.createObjectURL(blob);
-  try {
-    const anchor = document.createElement("a");
-    anchor.href = objectUrl;
-    anchor.download = `${sanitiseFilename(filename)}${ext}`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-  } finally {
-    // Revoke after a short delay to allow the download to start.
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-  }
+  await downloadBlob(url, `${sanitiseFilename(filename)}${ext}`);
 }
 
 // ─── Navigation items ──────────────────────────────────────────────────────

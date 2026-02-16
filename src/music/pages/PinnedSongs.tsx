@@ -18,6 +18,7 @@ import { Button } from "@/shared/components/ui/button";
 import { getSongs, getMessages, pinSong } from "@/music/lib/storage/storageService";
 import type { Song } from "@/music/lib/storage/types";
 import { log } from "@/music/lib/actionLog";
+import { downloadBlob } from "@/shared/lib/downloadBlob";
 
 export default function PinnedSongs() {
   // Load all songs and messages once on mount; unpinning updates local state.
@@ -67,27 +68,7 @@ export default function PinnedSongs() {
       action: "song:download",
       data: { songId: song.id },
     });
-    try {
-      const response = await fetch(song.audioUrl);
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = objectUrl;
-      a.download = `${song.title}.mp3`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(objectUrl);
-    } catch {
-      // If fetch fails (e.g. CORS or network), fall back to a direct link.
-      const a = document.createElement("a");
-      a.href = song.audioUrl;
-      a.download = `${song.title}.mp3`;
-      a.target = "_blank";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
+    await downloadBlob(song.audioUrl, `${song.title}.mp3`, true);
   }, []);
 
   return (
