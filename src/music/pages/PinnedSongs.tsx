@@ -1,9 +1,13 @@
 /**
- * PinnedSongs page (US-010 / US-013).
+ * PinnedSongs page (US-010 / US-013 / US-020).
  *
- * Displays all pinned, non-deleted songs across every message.
+ * Displays songs across every message, defaulting to pinned-only view (US-020).
  * Each song shows its title and the associated message title (lyrics title)
  * as a clickable link to /lyrics/:messageId/songs (US-010).
+ *
+ * Filter controls (US-020):
+ *   - "Clear filter" button shown when pinned-only filter is active; click shows all songs
+ *   - "Show pinned only" button shown when filter is cleared; click restores pinned-only view
  *
  * Per-song actions:
  *   - Play: inline HTML5 audio player (always visible)
@@ -37,13 +41,19 @@ export default function PinnedSongs() {
   // Local unpin tracking: set of song IDs that have been unpinned this session.
   const [unpinnedIds, setUnpinnedIds] = useState<Set<string>>(new Set());
 
-  // All pinned, non-deleted songs (excluding those just unpinned locally).
+  // US-020: filter state — defaults to pinned-only view.
+  const [showPinnedOnly, setShowPinnedOnly] = useState(true);
+
+  // Displayed songs: respects pinned filter and excludes deleted / locally-unpinned songs.
   const pinnedSongs = useMemo(
     () =>
-      allSongs.filter(
-        (s) => s.pinned && !s.deleted && !unpinnedIds.has(s.id)
-      ),
-    [allSongs, unpinnedIds]
+      allSongs.filter((s) => {
+        if (s.deleted) return false;
+        if (unpinnedIds.has(s.id)) return false;
+        if (showPinnedOnly && !s.pinned) return false;
+        return true;
+      }),
+    [allSongs, unpinnedIds, showPinnedOnly]
   );
 
   /** Unpin a song: update storage and remove it from the view immediately. */
@@ -73,9 +83,31 @@ export default function PinnedSongs() {
 
   return (
     <div className="p-4 md:p-8 max-w-3xl">
-      <div className="flex items-center gap-2.5 mb-1">
-        <Pin size={18} className="text-primary" aria-hidden="true" />
-        <h1>Pinned Songs</h1>
+      <div className="flex items-center justify-between gap-4 mb-1">
+        <div className="flex items-center gap-2.5">
+          <Pin size={18} className="text-primary" aria-hidden="true" />
+          <h1>Pinned Songs</h1>
+        </div>
+        {/* US-020: filter toggle button */}
+        {showPinnedOnly ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPinnedOnly(false)}
+            data-testid="clear-filter-btn"
+          >
+            Clear filter
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPinnedOnly(true)}
+            data-testid="show-pinned-only-btn"
+          >
+            Show pinned only
+          </Button>
+        )}
       </div>
       <p className="text-muted-foreground mt-1 text-sm">
         Your saved songs, ready to play or download.

@@ -1,5 +1,5 @@
 /**
- * Tests for US-013 / US-010: Pinned Songs page.
+ * Tests for US-013 / US-010 / US-020: Pinned Songs page.
  *
  * Verifies that:
  * - All pinned, non-deleted songs are listed
@@ -10,6 +10,7 @@
  * - Download button is visible on each pinned song item
  * - Empty state shown when no pinned songs exist
  * - Screenshot test with seeded fixture data
+ * - US-020: "Clear filter" button shows all songs; "Show pinned only" restores pinned view
  *
  * State is seeded via storageService.import() — the same code path as the
  * real Settings import UI — to ensure test state flows through real code.
@@ -45,9 +46,9 @@ test.describe("Pinned Songs page (US-013)", () => {
       "Pinned Anthem (Take 1)"
     );
 
-    // Entry title should be shown under the song title
+    // Entry title should be shown under the song title (includes "from" prefix)
     await expect(page.getByTestId("pinned-song-entry-title")).toHaveText(
-      "Pinned Anthem"
+      'from "Pinned Anthem"'
     );
   });
 
@@ -60,10 +61,10 @@ test.describe("Pinned Songs page (US-013)", () => {
     // The entry title element should be an anchor (<a>) pointing to the Songs View
     const entryTitleLink = page.getByTestId("pinned-song-entry-title");
     await expect(entryTitleLink).toBeVisible();
-    await expect(entryTitleLink).toHaveText("Pinned Anthem");
+    await expect(entryTitleLink).toHaveText('from "Pinned Anthem"');
 
     // Verify it is a link with the correct href
-    const expectedHref = `/lyrics/fixture-msg-pinned-a/songs`;
+    const expectedHref = `/music/lyrics/fixture-msg-pinned-a/songs`;
     await expect(entryTitleLink).toHaveAttribute("href", expectedHref);
   });
 
@@ -186,6 +187,93 @@ test.describe("Pinned Songs page (US-013)", () => {
 
     await expect(page.getByTestId("pinned-song-item")).toHaveCount(2);
     await expect(page.getByTestId("pinned-song-audio")).toHaveCount(2);
+  });
+
+  // ── US-020: Filter toggle ─────────────────────────────────────────────────
+
+  test("US-020: defaults to pinned-only view with Clear filter button visible", async ({
+    page,
+  }) => {
+    // pinnedFixture has 1 pinned song and 1 unpinned song
+    await seedFixture(page, pinnedFixture);
+    await page.goto("/music/pinned");
+
+    // Only pinned song visible by default
+    await expect(page.getByTestId("pinned-song-item")).toHaveCount(1);
+
+    // "Clear filter" button is visible; "Show pinned only" is not
+    await expect(page.getByTestId("clear-filter-btn")).toBeVisible();
+    await expect(page.getByTestId("show-pinned-only-btn")).not.toBeVisible();
+  });
+
+  test("US-020: clicking Clear filter shows all non-deleted songs", async ({
+    page,
+  }) => {
+    // pinnedFixture has 1 pinned + 1 unpinned non-deleted song
+    await seedFixture(page, pinnedFixture);
+    await page.goto("/music/pinned");
+
+    await page.getByTestId("clear-filter-btn").click();
+
+    // Both songs should now be visible
+    await expect(page.getByTestId("pinned-song-item")).toHaveCount(2);
+  });
+
+  test("US-020: after clearing filter, Show pinned only button appears", async ({
+    page,
+  }) => {
+    await seedFixture(page, pinnedFixture);
+    await page.goto("/music/pinned");
+
+    await page.getByTestId("clear-filter-btn").click();
+
+    // "Show pinned only" replaces "Clear filter"
+    await expect(page.getByTestId("show-pinned-only-btn")).toBeVisible();
+    await expect(page.getByTestId("clear-filter-btn")).not.toBeVisible();
+  });
+
+  test("US-020: clicking Show pinned only restores pinned-only view", async ({
+    page,
+  }) => {
+    await seedFixture(page, pinnedFixture);
+    await page.goto("/music/pinned");
+
+    // Clear filter to show all
+    await page.getByTestId("clear-filter-btn").click();
+    await expect(page.getByTestId("pinned-song-item")).toHaveCount(2);
+
+    // Restore pinned-only view
+    await page.getByTestId("show-pinned-only-btn").click();
+    await expect(page.getByTestId("pinned-song-item")).toHaveCount(1);
+    await expect(page.getByTestId("clear-filter-btn")).toBeVisible();
+  });
+
+  test("US-020: cleared filter does not show deleted songs", async ({
+    page,
+  }) => {
+    // pinnedFixture has 1 pinned + 1 unpinned non-deleted song; add a deleted song
+    const fixtureWithDeleted = {
+      ...pinnedFixture,
+      songs: [
+        ...pinnedFixture.songs,
+        {
+          id: "fixture-song-pinned-3",
+          messageId: "fixture-msg-pinned-a",
+          title: "Deleted Take",
+          audioUrl: "https://example.com/deleted.mp3",
+          pinned: false,
+          deleted: true,
+          createdAt: "2026-01-02T10:07:00.000Z",
+        },
+      ],
+    };
+    await seedFixture(page, fixtureWithDeleted);
+    await page.goto("/music/pinned");
+
+    await page.getByTestId("clear-filter-btn").click();
+
+    // Only non-deleted songs (2) should be visible; deleted song excluded
+    await expect(page.getByTestId("pinned-song-item")).toHaveCount(2);
   });
 });
 
