@@ -124,9 +124,17 @@ export default function ImageHome() {
       {/* Recent sessions — only shown when the user has previous work */}
       {hasHistory && (
         <div className="mt-10 w-full max-w-xl">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-            Recent sessions
-          </p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Recent sessions
+            </p>
+            <Link
+              to="/image/sessions"
+              className="text-xs text-primary hover:underline underline-offset-2 transition-colors"
+            >
+              View all sessions →
+            </Link>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {recentSessions.map((session) => (
               <Link
