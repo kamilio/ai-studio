@@ -21,6 +21,7 @@ import { Button } from "@/shared/components/ui/button";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { videoStorageService } from "@/video/lib/storage/storageService";
 import type { GlobalTemplate, TemplateCategory } from "@/video/lib/storage/types";
+import { log } from "@/music/lib/actionLog";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -293,11 +294,21 @@ export default function VideoTemplates() {
         category: data.category,
         value: data.value,
       });
+      log({
+        category: "user:action",
+        action: "video:template:global:edit",
+        data: { name: formState.initial.name },
+      });
     } else {
       videoStorageService.createGlobalTemplate({
         name: data.name,
         category: data.category,
         value: data.value,
+      });
+      log({
+        category: "user:action",
+        action: "video:template:global:create",
+        data: { name: data.name, category: data.category },
       });
     }
     reloadTemplates();
@@ -317,6 +328,11 @@ export default function VideoTemplates() {
   function confirmDelete() {
     if (pendingDeleteName) {
       videoStorageService.deleteGlobalTemplate(pendingDeleteName);
+      log({
+        category: "user:action",
+        action: "video:template:global:delete",
+        data: { name: pendingDeleteName },
+      });
       reloadTemplates();
     }
     setPendingDeleteName(null);

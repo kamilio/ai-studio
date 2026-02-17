@@ -46,6 +46,7 @@ const _entries: LogEntry[] = [];
 /**
  * Append a new entry to the log.
  * If the log has reached MAX_ENTRIES, the oldest entry is dropped first.
+ * In development builds, each entry is also emitted via console.debug.
  */
 export function log(
   entry: Omit<LogEntry, "timestamp"> & { timestamp?: string }
@@ -60,6 +61,9 @@ export function log(
     _entries.shift();
   }
   _entries.push(full);
+  if (import.meta.env.DEV) {
+    console.debug("[actionLog]", full.action, full);
+  }
 }
 
 /**

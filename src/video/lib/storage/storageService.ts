@@ -17,6 +17,7 @@
 
 import type { Script, GlobalTemplate } from "./types";
 import { emitQuotaExceeded } from "@/shared/lib/storageQuotaEvents";
+import { log } from "@/music/lib/actionLog";
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 
@@ -86,6 +87,9 @@ export function createScript(title: string): Script {
   };
   const scripts = getScripts();
   writeJSON(KEYS.scripts, [...scripts, script]);
+  if (import.meta.env.DEV) {
+    log({ category: "storage", action: "video:storage:script:write", data: { scriptId: script.id, op: "create" } });
+  }
   return script;
 }
 
@@ -114,6 +118,9 @@ export function updateScript(id: string, data: Partial<Omit<Script, "id" | "crea
   };
   scripts[idx] = updated;
   writeJSON(KEYS.scripts, scripts);
+  if (import.meta.env.DEV) {
+    log({ category: "storage", action: "video:storage:script:write", data: { scriptId: id, op: "update" } });
+  }
   return updated;
 }
 
@@ -125,6 +132,9 @@ export function deleteScript(id: string): boolean {
   const filtered = scripts.filter((s) => s.id !== id);
   if (filtered.length === scripts.length) return false;
   writeJSON(KEYS.scripts, filtered);
+  if (import.meta.env.DEV) {
+    log({ category: "storage", action: "video:storage:script:write", data: { scriptId: id, op: "delete" } });
+  }
   return true;
 }
 
@@ -159,6 +169,9 @@ export function createGlobalTemplate(
     templates.push(template);
   }
   writeJSON(KEYS.globalTemplates, templates);
+  if (import.meta.env.DEV) {
+    log({ category: "storage", action: "video:storage:template:write", data: { name: template.name, op: "create", global: true } });
+  }
   return template;
 }
 
@@ -183,6 +196,9 @@ export function updateGlobalTemplate(
   const updated: GlobalTemplate = { ...templates[idx], ...data, name, global: true };
   templates[idx] = updated;
   writeJSON(KEYS.globalTemplates, templates);
+  if (import.meta.env.DEV) {
+    log({ category: "storage", action: "video:storage:template:write", data: { name, op: "update", global: true } });
+  }
   return updated;
 }
 
@@ -194,6 +210,9 @@ export function deleteGlobalTemplate(name: string): boolean {
   const filtered = templates.filter((t) => t.name !== name);
   if (filtered.length === templates.length) return false;
   writeJSON(KEYS.globalTemplates, filtered);
+  if (import.meta.env.DEV) {
+    log({ category: "storage", action: "video:storage:template:write", data: { name, op: "delete", global: true } });
+  }
   return true;
 }
 

@@ -24,6 +24,7 @@ import { Button } from "@/shared/components/ui/button";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { videoStorageService } from "@/video/lib/storage/storageService";
 import type { Script } from "@/video/lib/storage/types";
+import { log } from "@/music/lib/actionLog";
 
 // ─── Relative time ────────────────────────────────────────────────────────────
 
@@ -122,6 +123,11 @@ function ScriptCard({ script, onDeleted, onRenamed }: ScriptCardProps) {
     const trimmed = renameValue.trim();
     if (trimmed && trimmed !== script.title) {
       videoStorageService.updateScript(script.id, { title: trimmed });
+      log({
+        category: "user:action",
+        action: "video:script:rename",
+        data: { scriptId: script.id, oldTitle: script.title, newTitle: trimmed },
+      });
       onRenamed(script.id, trimmed);
     }
     setIsRenaming(false);
@@ -139,6 +145,11 @@ function ScriptCard({ script, onDeleted, onRenamed }: ScriptCardProps) {
 
   function confirmDeleteAction() {
     videoStorageService.deleteScript(script.id);
+    log({
+      category: "user:action",
+      action: "video:script:delete",
+      data: { scriptId: script.id },
+    });
     setConfirmDelete(false);
     onDeleted();
   }

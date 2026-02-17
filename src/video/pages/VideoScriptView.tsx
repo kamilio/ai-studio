@@ -113,6 +113,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { getSettings } from "@/music/lib/storage";
 import { videoStorageService } from "@/video/lib/storage/storageService";
+import { log } from "@/music/lib/actionLog";
 import type {
   Script,
   Shot,
@@ -584,6 +585,7 @@ function ShotCard({
       setIsRenaming(false);
       return;
     }
+    const oldTitle = shot.title;
     const updatedShots = script.shots.map((s) =>
       s.id === shot.id ? { ...s, title: trimmed } : s
     );
@@ -591,6 +593,13 @@ function ShotCard({
       shots: updatedShots,
     });
     if (updated) {
+      if (trimmed !== oldTitle) {
+        log({
+          category: "user:action",
+          action: "video:shot:rename",
+          data: { scriptId: script.id, shotId: shot.id, oldTitle, newTitle: trimmed },
+        });
+      }
       onUpdate(updated);
     }
     setIsRenaming(false);
@@ -628,6 +637,11 @@ function ShotCard({
       shots: updatedShots,
     });
     if (updated) {
+      log({
+        category: "user:action",
+        action: "video:shot:prompt:edit",
+        data: { scriptId: script.id, shotId: shot.id, length: promptValue.length },
+      });
       onUpdate(updated);
     }
   }
@@ -657,6 +671,11 @@ function ShotCard({
       shots: updatedShots,
     });
     if (updated) {
+      log({
+        category: "user:action",
+        action: "video:shot:narration:toggle",
+        data: { scriptId: script.id, shotId: shot.id, enabled: newEnabled },
+      });
       onUpdate(updated);
     }
   }
@@ -674,6 +693,11 @@ function ShotCard({
       shots: updatedShots,
     });
     if (updated) {
+      log({
+        category: "user:action",
+        action: "video:shot:narration:edit",
+        data: { scriptId: script.id, shotId: shot.id, length: narrationText.length },
+      });
       onUpdate(updated);
     }
   }
@@ -690,6 +714,11 @@ function ShotCard({
       shots: updatedShots,
     });
     if (updated) {
+      log({
+        category: "user:action",
+        action: "video:shot:audio:source",
+        data: { scriptId: script.id, shotId: shot.id, source },
+      });
       onUpdate(updated);
     }
   }
@@ -716,6 +745,11 @@ function ShotCard({
     if (isMountedRef.current) {
       setIsGeneratingAudio(true);
       setAudioError(null);
+      log({
+        category: "user:action",
+        action: "video:audio:generate:start",
+        data: { scriptId: script.id, shotId: shot.id },
+      });
     }
 
     try {
@@ -729,6 +763,11 @@ function ShotCard({
         if (isMountedRef.current) {
           setAudioError("Failed to measure audio duration.");
           setIsGeneratingAudio(false);
+          log({
+            category: "user:action",
+            action: "video:audio:generate:error",
+            data: { scriptId: script.id, shotId: shot.id, error: "Failed to measure audio duration." },
+          });
           refreshBalance(apiKey);
         }
         return;
@@ -738,10 +777,14 @@ function ShotCard({
 
       if (durationS > VIDEO_DURATION) {
         const roundedS = Math.round(durationS * 10) / 10;
-        setAudioError(
-          `Audio is too long (${roundedS}s). Shorten the narration text and regenerate.`
-        );
+        const errorMsg = `Audio is too long (${roundedS}s). Shorten the narration text and regenerate.`;
+        setAudioError(errorMsg);
         setIsGeneratingAudio(false);
+        log({
+          category: "user:action",
+          action: "video:audio:generate:error",
+          data: { scriptId: script.id, shotId: shot.id, error: errorMsg },
+        });
         refreshBalance(apiKey);
         return;
       }
@@ -755,6 +798,11 @@ function ShotCard({
         shots: updatedShots,
       });
       if (updated && isMountedRef.current) {
+        log({
+          category: "user:action",
+          action: "video:audio:generate:complete",
+          data: { scriptId: script.id, shotId: shot.id, durationS },
+        });
         onUpdate(updated);
       }
 
@@ -764,10 +812,14 @@ function ShotCard({
       }
     } catch (err) {
       if (!isMountedRef.current) return;
-      setAudioError(
-        err instanceof Error ? err.message : "Audio generation failed."
-      );
+      const errorMsg = err instanceof Error ? err.message : "Audio generation failed.";
+      setAudioError(errorMsg);
       setIsGeneratingAudio(false);
+      log({
+        category: "user:action",
+        action: "video:audio:generate:error",
+        data: { scriptId: script.id, shotId: shot.id, error: errorMsg },
+      });
       refreshBalance(apiKey);
     }
   }
@@ -1425,6 +1477,7 @@ function TemplatesModeView({ script, onUpdate }: TemplatesModeViewProps) {
   }
 
   function handleFormSave(data: { name: string; category: TemplateCategory; value: string }) {
+    const isEdit = formState?.mode === "edit";
     const newTemplate: LocalTemplate = {
       name: data.name,
       category: data.category,
@@ -1443,6 +1496,13 @@ function TemplatesModeView({ script, onUpdate }: TemplatesModeViewProps) {
     if (updated) {
       onUpdate(updated);
     }
+    log({
+      category: "user:action",
+      action: isEdit ? "video:template:local:edit" : "video:template:local:create",
+      data: isEdit
+        ? { scriptId: script.id, name: data.name }
+        : { scriptId: script.id, name: data.name, category: data.category },
+    });
     setFormState(null);
   }
 
@@ -1466,6 +1526,11 @@ function TemplatesModeView({ script, onUpdate }: TemplatesModeViewProps) {
     if (updated) {
       onUpdate(updated);
     }
+    log({
+      category: "user:action",
+      action: "video:template:local:delete",
+      data: { scriptId: script.id, name: pendingDeleteName },
+    });
     setPendingDeleteName(null);
   }
 
@@ -1649,6 +1714,15 @@ function ShotModeView({
       // We persist on every change for the tiptap editor to keep storage in sync
       void persistPrompt(text);
     },
+    onBlur: ({ editor: ed }) => {
+      const json = ed.getJSON();
+      const text = tiptapContentToPrompt(json as { type: string; content?: object[] });
+      log({
+        category: "user:action",
+        action: "video:shot:prompt:edit",
+        data: { scriptId: script.id, shotId: shot.id, length: text.length },
+      });
+    },
     editorProps: {
       attributes: {
         class:
@@ -1812,6 +1886,11 @@ function ShotModeView({
       shots: updatedShots,
     });
     if (updated && isMountedRef.current) {
+      log({
+        category: "user:action",
+        action: "video:shot:narration:toggle",
+        data: { scriptId: script.id, shotId: shot.id, enabled: newEnabled },
+      });
       onUpdate(updated);
     }
   }
@@ -1827,6 +1906,11 @@ function ShotModeView({
       shots: updatedShots,
     });
     if (updated && isMountedRef.current) {
+      log({
+        category: "user:action",
+        action: "video:shot:narration:edit",
+        data: { scriptId: script.id, shotId: shot.id, length: narrationText.length },
+      });
       onUpdate(updated);
     }
   }
@@ -1841,6 +1925,11 @@ function ShotModeView({
       shots: updatedShots,
     });
     if (updated && isMountedRef.current) {
+      log({
+        category: "user:action",
+        action: "video:shot:audio:source",
+        data: { scriptId: script.id, shotId: shot.id, source },
+      });
       onUpdate(updated);
     }
   }
@@ -1876,6 +1965,11 @@ function ShotModeView({
     if (isMountedRef.current) {
       setIsGeneratingAudio(true);
       setAudioError(null);
+      log({
+        category: "user:action",
+        action: "video:audio:generate:start",
+        data: { scriptId: script.id, shotId: shot.id },
+      });
     }
 
     try {
@@ -1890,6 +1984,11 @@ function ShotModeView({
         if (isMountedRef.current) {
           setAudioError("Failed to measure audio duration.");
           setIsGeneratingAudio(false);
+          log({
+            category: "user:action",
+            action: "video:audio:generate:error",
+            data: { scriptId: script.id, shotId: shot.id, error: "Failed to measure audio duration." },
+          });
           refreshBalance(apiKey);
         }
         return;
@@ -1900,10 +1999,14 @@ function ShotModeView({
       // Reject if audio is longer than the clip duration
       if (durationS > VIDEO_DURATION) {
         const roundedS = Math.round(durationS * 10) / 10;
-        setAudioError(
-          `Audio is too long (${roundedS}s). Shorten the narration text and regenerate.`
-        );
+        const errorMsg = `Audio is too long (${roundedS}s). Shorten the narration text and regenerate.`;
+        setAudioError(errorMsg);
         setIsGeneratingAudio(false);
+        log({
+          category: "user:action",
+          action: "video:audio:generate:error",
+          data: { scriptId: script.id, shotId: shot.id, error: errorMsg },
+        });
         refreshBalance(apiKey);
         return;
       }
@@ -1918,6 +2021,11 @@ function ShotModeView({
         shots: updatedShots,
       });
       if (updated && isMountedRef.current) {
+        log({
+          category: "user:action",
+          action: "video:audio:generate:complete",
+          data: { scriptId: script.id, shotId: shot.id, durationS },
+        });
         onUpdate(updated);
       }
 
@@ -1927,10 +2035,14 @@ function ShotModeView({
       }
     } catch (err) {
       if (!isMountedRef.current) return;
-      setAudioError(
-        err instanceof Error ? err.message : "Audio generation failed."
-      );
+      const errorMsg = err instanceof Error ? err.message : "Audio generation failed.";
+      setAudioError(errorMsg);
       setIsGeneratingAudio(false);
+      log({
+        category: "user:action",
+        action: "video:audio:generate:error",
+        data: { scriptId: script.id, shotId: shot.id, error: errorMsg },
+      });
       refreshBalance(apiKey);
     }
   }, [
@@ -1973,6 +2085,11 @@ function ShotModeView({
       shots: updatedShots,
     });
     if (updated && isMountedRef.current) {
+      log({
+        category: "user:action",
+        action: "video:take:select",
+        data: { scriptId: script.id, shotId: shot.id, url },
+      });
       onUpdate(updated);
     }
   }
@@ -1999,6 +2116,11 @@ function ShotModeView({
       shots: updatedShots,
     });
     if (updated && isMountedRef.current) {
+      log({
+        category: "user:action",
+        action: isPinned ? "video:take:unpin" : "video:take:pin",
+        data: { scriptId: script.id, shotId: shot.id, url: entry.url },
+      });
       onUpdate(updated);
     }
   }
@@ -2010,6 +2132,11 @@ function ShotModeView({
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    log({
+      category: "user:action",
+      action: "video:take:download",
+      data: { scriptId: script.id, shotId: shot.id, url },
+    });
   }
 
   function handleDeleteVideo(index: number) {
@@ -2033,6 +2160,11 @@ function ShotModeView({
       shots: updatedShots,
     });
     if (updated && isMountedRef.current) {
+      log({
+        category: "user:action",
+        action: "video:take:delete",
+        data: { scriptId: script.id, shotId: shot.id, url: entry.url },
+      });
       onUpdate(updated);
       setConfirmDeleteIndex(null);
     }
@@ -2079,9 +2211,15 @@ function ShotModeView({
     if (isMountedRef.current) {
       setIsGenerating(true);
       setGenerationSlots(initialSlots);
+      log({
+        category: "user:action",
+        action: "video:generate:start",
+        data: { scriptId: script.id, shotId: shot.id, count: generateCount },
+      });
     }
 
     const promptText = shot.prompt;
+    let successCount = 0;
 
     // Run all slots in parallel
     const slotPromises = initialSlots.map(async (slot) => {
@@ -2112,6 +2250,7 @@ function ShotModeView({
         if (updated && isMountedRef.current) {
           onUpdate(updated);
         }
+        successCount++;
 
         // Remove this slot from pending slots on success
         if (isMountedRef.current) {
@@ -2121,6 +2260,12 @@ function ShotModeView({
         }
       } catch (err) {
         if (!isMountedRef.current) return;
+        const errorMsg = err instanceof Error ? err.message : "Generation failed.";
+        log({
+          category: "user:action",
+          action: "video:generate:error",
+          data: { scriptId: script.id, shotId: shot.id, error: errorMsg },
+        });
         // Replace pending slot with error slot
         setGenerationSlots((prev) =>
           prev.map((sl) =>
@@ -2128,8 +2273,7 @@ function ShotModeView({
               ? {
                   status: "error" as const,
                   slotId: sl.slotId,
-                  errorMessage:
-                    err instanceof Error ? err.message : "Generation failed.",
+                  errorMessage: errorMsg,
                   prompt: promptText,
                 }
               : sl
@@ -2142,6 +2286,11 @@ function ShotModeView({
     await Promise.allSettled(slotPromises);
 
     if (isMountedRef.current) {
+      log({
+        category: "user:action",
+        action: "video:generate:complete",
+        data: { scriptId: script.id, shotId: shot.id, count: generateCount, successCount },
+      });
       setIsGenerating(false);
       refreshBalance(apiKey);
     }
@@ -2907,12 +3056,18 @@ function VideoScriptViewInner() {
         history: [],
       },
     };
+    const newIndex = script.shots.length;
     const updatedShots = [...script.shots, newShot];
     const updated = videoStorageService.updateScript(script.id, {
       shots: updatedShots,
     });
     if (updated && isMounted.current) {
       setScript(updated);
+      log({
+        category: "user:action",
+        action: "video:shot:add",
+        data: { scriptId: script.id, newShotId: newShot.id, newIndex },
+      });
       // Scroll to new shot after render
       setTimeout(() => {
         shotListEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -2924,15 +3079,20 @@ function VideoScriptViewInner() {
   const handleDeleteShot = useCallback(
     (shotId: string) => {
       if (!script) return;
+      const deletedIndex = script.shots.findIndex((s) => s.id === shotId);
       const updatedShots = script.shots.filter((s) => s.id !== shotId);
       const updated = videoStorageService.updateScript(script.id, {
         shots: updatedShots,
       });
       if (updated && isMounted.current) {
         setScript(updated);
+        log({
+          category: "user:action",
+          action: "video:shot:delete",
+          data: { scriptId: script.id, shotId, index: deletedIndex },
+        });
         // Adjust active shot index if needed
         if (mode === "shot") {
-          const deletedIndex = script.shots.findIndex((s) => s.id === shotId);
           if (deletedIndex !== -1 && activeShotIndex >= deletedIndex) {
             setActiveShotIndex(Math.max(0, activeShotIndex - 1));
           }
@@ -2954,10 +3114,20 @@ function VideoScriptViewInner() {
     (shotIndex: number) => {
       if (isMounted.current) {
         setActiveShotIndex(shotIndex);
-        setMode("shot");
+        setMode((prevMode) => {
+          if (script) {
+            log({
+              category: "user:action",
+              action: "video:mode:change",
+              data: { scriptId: script.id, from: prevMode, to: "shot" },
+            });
+          }
+          return "shot";
+        });
       }
     },
-    []
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [script]
   );
 
   // ─── Navigate within Shot mode ────────────────────────────────────────────
@@ -2966,7 +3136,14 @@ function VideoScriptViewInner() {
       if (!script) return;
       if (newIndex < 0 || newIndex >= script.shots.length) return;
       if (isMounted.current) {
-        setActiveShotIndex(newIndex);
+        setActiveShotIndex((prevIndex) => {
+          log({
+            category: "user:action",
+            action: "video:shot:navigate",
+            data: { scriptId: script.id, fromIndex: prevIndex, toIndex: newIndex },
+          });
+          return newIndex;
+        });
       }
     },
     [script]
@@ -2976,7 +3153,16 @@ function VideoScriptViewInner() {
   const handleModeChange = useCallback(
     (newMode: EditorMode) => {
       if (isMounted.current) {
-        setMode(newMode);
+        setMode((prevMode) => {
+          if (script && newMode !== prevMode) {
+            log({
+              category: "user:action",
+              action: "video:mode:change",
+              data: { scriptId: script.id, from: prevMode, to: newMode },
+            });
+          }
+          return newMode;
+        });
         // When switching to Shot mode, clamp index to valid range
         if (newMode === "shot" && script) {
           setActiveShotIndex((prev) =>
@@ -3006,12 +3192,18 @@ function VideoScriptViewInner() {
       const newIndex = script.shots.findIndex((s) => s.id === over.id);
       if (oldIndex === -1 || newIndex === -1) return;
 
+      const shotId = active.id as string;
       const reorderedShots = arrayMove(script.shots, oldIndex, newIndex);
       const updated = videoStorageService.updateScript(script.id, {
         shots: reorderedShots,
       });
       if (updated && isMounted.current) {
         setScript(updated);
+        log({
+          category: "user:action",
+          action: "video:shot:reorder",
+          data: { scriptId: script.id, shotId, fromIndex: oldIndex, toIndex: newIndex },
+        });
       }
     },
     [script]
@@ -3082,6 +3274,11 @@ function VideoScriptViewInner() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    log({
+      category: "user:action",
+      action: "video:script:export",
+      data: { scriptId: script.id, shotCount: script.shots.length },
+    });
   }, [script]);
 
   // ─── Send chat message ────────────────────────────────────────────────────

@@ -31,6 +31,7 @@ import { useReportBug } from "@/shared/hooks/useReportBug";
 import { useApiKeyGuard } from "@/shared/hooks/useApiKeyGuard";
 import { ApiKeyMissingModal } from "@/shared/components/ApiKeyMissingModal";
 import { load as yamlLoad } from "js-yaml";
+import { log } from "@/music/lib/actionLog";
 
 // ─── YAML parsing ─────────────────────────────────────────────────────────────
 
@@ -137,6 +138,11 @@ function ScriptCard({ script, onDeleted, onRenamed }: ScriptCardProps) {
     const trimmed = renameValue.trim();
     if (trimmed && trimmed !== script.title) {
       videoStorageService.updateScript(script.id, { title: trimmed });
+      log({
+        category: "user:action",
+        action: "video:script:rename",
+        data: { scriptId: script.id, oldTitle: script.title, newTitle: trimmed },
+      });
       onRenamed(script.id, trimmed);
     }
     setIsRenaming(false);
@@ -154,6 +160,11 @@ function ScriptCard({ script, onDeleted, onRenamed }: ScriptCardProps) {
 
   function confirmDeleteAction() {
     videoStorageService.deleteScript(script.id);
+    log({
+      category: "user:action",
+      action: "video:script:delete",
+      data: { scriptId: script.id },
+    });
     setConfirmDelete(false);
     onDeleted();
   }
@@ -368,6 +379,12 @@ export default function VideoHome() {
       if (shots.length > 0) {
         videoStorageService.updateScript(script.id, { shots });
       }
+
+      log({
+        category: "user:action",
+        action: "video:script:create",
+        data: { scriptId: script.id, title: yamlTitle, shotCount: shots.length },
+      });
 
       if (!isMounted.current) return;
 

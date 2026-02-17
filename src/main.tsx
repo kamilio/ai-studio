@@ -6,6 +6,7 @@ import { ErrorBoundary } from "@/shared/components/ErrorBoundary";
 import { storageService } from "@/music/lib/storage";
 import { getAll as getActionLog } from "@/music/lib/actionLog";
 import { imageStorageService } from "@/image/lib/storage";
+import { videoStorageService } from "@/video/lib/storage/storageService";
 
 // Expose storageService on window so Playwright tests can call it via page.evaluate
 declare global {
@@ -13,11 +14,13 @@ declare global {
     storageService: typeof storageService;
     getActionLog: typeof getActionLog;
     imageStorageService: typeof imageStorageService;
+    videoStorageService: typeof videoStorageService;
   }
 }
 window.storageService = storageService;
 window.getActionLog = getActionLog;
 window.imageStorageService = imageStorageService;
+window.videoStorageService = videoStorageService;
 
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Root element not found");

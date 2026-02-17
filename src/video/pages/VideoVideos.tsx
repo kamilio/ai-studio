@@ -15,6 +15,7 @@ import { Clock, Film, Pin, Download, Trash2, Check } from "lucide-react";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { videoStorageService } from "@/video/lib/storage/storageService";
 import type { Script, Shot, VideoHistoryEntry } from "@/video/lib/storage/types";
+import { log } from "@/music/lib/actionLog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -294,6 +295,11 @@ export default function VideoVideos() {
       s.id === shot.id ? { ...s, video: { ...s.video, history: updatedHistory } } : s
     );
     videoStorageService.updateScript(script.id, { shots: updatedShots });
+    log({
+      category: "user:action",
+      action: isPinned ? "video:take:unpin" : "video:take:pin",
+      data: { scriptId: script.id, shotId: shot.id, url: entry.url },
+    });
     reloadScripts();
   }
 
@@ -304,6 +310,11 @@ export default function VideoVideos() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    log({
+      category: "user:action",
+      action: "video:take:download",
+      data: { scriptId: flat.script.id, shotId: flat.shot.id, url: flat.entry.url },
+    });
   }
 
   function handleDeleteConfirm() {
@@ -324,6 +335,11 @@ export default function VideoVideos() {
         : s
     );
     videoStorageService.updateScript(script.id, { shots: updatedShots });
+    log({
+      category: "user:action",
+      action: "video:take:delete",
+      data: { scriptId: script.id, shotId: shot.id, url: entry.url },
+    });
     setPendingDelete(null);
     reloadScripts();
   }

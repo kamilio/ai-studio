@@ -15,6 +15,7 @@ import { useNavigate } from "react-router-dom";
 import { Pin, Download, Check, ArrowRight, Film } from "lucide-react";
 import { videoStorageService } from "@/video/lib/storage/storageService";
 import type { Script, Shot, VideoHistoryEntry } from "@/video/lib/storage/types";
+import { log } from "@/music/lib/actionLog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -236,6 +237,11 @@ export default function VideoPinnedVideos() {
       s.id === shot.id ? { ...s, video: { ...s.video, history: updatedHistory } } : s
     );
     videoStorageService.updateScript(script.id, { shots: updatedShots });
+    log({
+      category: "user:action",
+      action: "video:take:unpin",
+      data: { scriptId: script.id, shotId: shot.id, url: entry.url },
+    });
     reloadScripts();
   }
 
@@ -246,6 +252,11 @@ export default function VideoPinnedVideos() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    log({
+      category: "user:action",
+      action: "video:take:download",
+      data: { scriptId: flat.script.id, shotId: flat.shot.id, url: flat.entry.url },
+    });
   }
 
   function handleOpen(flat: FlatPinnedEntry) {
