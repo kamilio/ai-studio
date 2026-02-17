@@ -32,6 +32,7 @@ import { useApiKeyGuard } from "@/shared/hooks/useApiKeyGuard";
 import { ApiKeyMissingModal } from "@/shared/components/ApiKeyMissingModal";
 import { load as yamlLoad } from "js-yaml";
 import { log } from "@/music/lib/actionLog";
+import { ScriptThumbnail } from "@/video/components/ScriptThumbnail";
 
 // ─── YAML parsing ─────────────────────────────────────────────────────────────
 
@@ -172,9 +173,16 @@ function ScriptCard({ script, onDeleted, onRenamed }: ScriptCardProps) {
   return (
     <>
       <div
-        className="rounded-lg border border-border bg-card p-4 flex flex-col gap-2 hover:shadow-md hover:border-foreground/20 transition-all"
+        className="rounded-lg border border-border bg-card flex flex-col hover:shadow-md hover:border-foreground/20 transition-all overflow-hidden"
         data-testid={`script-card-${script.id}`}
       >
+        {/* Thumbnail */}
+        <div className="p-3 pb-0">
+          <ScriptThumbnail script={script} />
+        </div>
+
+        {/* Card body */}
+        <div className="p-4 flex flex-col gap-2">
         {/* Title row */}
         <div className="flex items-start justify-between gap-2">
           {isRenaming ? (
@@ -269,6 +277,7 @@ function ScriptCard({ script, onDeleted, onRenamed }: ScriptCardProps) {
           >
             <Link to={`/video/scripts/${script.id}`}>Edit</Link>
           </Button>
+        </div>
         </div>
       </div>
 

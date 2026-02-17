@@ -19,12 +19,13 @@
 
 import { useRef, useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Film, MoreHorizontal, Pencil, Plus, Trash2, Check, X } from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, Trash2, Check, X } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { videoStorageService } from "@/video/lib/storage/storageService";
 import type { Script } from "@/video/lib/storage/types";
 import { log } from "@/music/lib/actionLog";
+import { ScriptThumbnail } from "@/video/components/ScriptThumbnail";
 
 // ─── Relative time ────────────────────────────────────────────────────────────
 
@@ -41,37 +42,6 @@ function relativeTime(isoString: string): string {
   const months = Math.floor(days / 30);
   if (months < 12) return `${months}mo ago`;
   return `${Math.floor(months / 12)}y ago`;
-}
-
-// ─── ScriptThumbnail ──────────────────────────────────────────────────────────
-
-/**
- * Renders the 16:9 preview area for a script card.
- * If the script has a shot with a selectedUrl, renders an inline <video> element
- * (muted, preload=metadata). Otherwise renders a placeholder with a Film icon.
- */
-function ScriptThumbnail({ script }: { script: Script }) {
-  const selectedUrl = script.shots.find((s) => s.video.selectedUrl != null)?.video.selectedUrl ?? null;
-
-  if (selectedUrl) {
-    return (
-      <div className="w-full aspect-video rounded-md overflow-hidden bg-black">
-        <video
-          src={selectedUrl}
-          muted
-          preload="metadata"
-          className="w-full h-full object-cover"
-          aria-label="Script preview"
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-full aspect-video rounded-md overflow-hidden bg-muted flex items-center justify-center">
-      <Film className="h-8 w-8 text-muted-foreground/40" aria-hidden="true" />
-    </div>
-  );
 }
 
 // ─── ScriptCard ───────────────────────────────────────────────────────────────
