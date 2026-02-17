@@ -772,6 +772,14 @@ function ShotCard({
   const [promptValue, setPromptValue] = useState(shot.prompt);
   const promptRef = useRef<HTMLTextAreaElement>(null);
 
+  // When shot.prompt changes externally (e.g. AI tool call), sync local state during render.
+  // Uses the React-recommended "store previous prop in state" pattern (no effect needed).
+  const [prevShotPrompt, setPrevShotPrompt] = useState(shot.prompt);
+  if (prevShotPrompt !== shot.prompt) {
+    setPrevShotPrompt(shot.prompt);
+    setPromptValue(shot.prompt);
+  }
+
   // ── Autocomplete state (US-059) ─────────────────────────────────────────────
   const [autocompleteOpen, setAutocompleteOpen] = useState(false);
   const [autocompleteQuery, setAutocompleteQuery] = useState("");
@@ -787,6 +795,13 @@ function ShotCard({
 
   // ── Narration local state ──────────────────────────────────────────────────
   const [narrationText, setNarrationText] = useState(shot.narration.text);
+
+  // When shot.narration.text changes externally (e.g. AI tool call), sync local state during render.
+  const [prevNarrationText, setPrevNarrationText] = useState(shot.narration.text);
+  if (prevNarrationText !== shot.narration.text) {
+    setPrevNarrationText(shot.narration.text);
+    setNarrationText(shot.narration.text);
+  }
 
   // ── Audio generation state ─────────────────────────────────────────────────
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
