@@ -1,6 +1,6 @@
 import { ReactNode, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { Music, List, Pin, Plus, Settings as SettingsIcon, Bug, Film, LayoutList, Video } from "lucide-react";
+import { Music, List, Pin, Plus, Settings as SettingsIcon, Bug, Film, LayoutList, Video, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Breadcrumb } from "@/music/components/Breadcrumb";
 import { NavMenu } from "@/shared/components/NavMenu";
@@ -110,14 +110,25 @@ export const VIDEO_NAV_ITEMS: MenuItem[] = [
   },
 ];
 
+interface TopBarProps {
+  /** Icon displayed in the branding area. */
+  BrandIcon: LucideIcon;
+  /** Nav items passed to the NavMenu. */
+  navItems: MenuItem[];
+  /** When true, shows the 'New Lyrics' shortcut button (music pages only). */
+  showNewLyrics?: boolean;
+}
+
 /**
  * Top bar shown on every page except Home.
  *
  * Left:  branding link back to /
  * Center: breadcrumb segments
- * Right: balance badge + New Lyrics shortcut + circular NavMenu button
+ * Right: balance badge + optional New Lyrics shortcut + circular NavMenu button
+ *
+ * Parameterised via props so music, video, and future features share one component.
  */
-function TopBar() {
+function TopBar({ BrandIcon, navItems, showNewLyrics = false }: TopBarProps) {
   const { handleReportBug } = useReportBug();
   const { balance } = usePoeBalanceContext();
   return (
@@ -132,7 +143,7 @@ function TopBar() {
         aria-label="Studio home"
       >
         <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center shrink-0">
-          <Music className="h-3.5 w-3.5 text-primary-foreground" />
+          <BrandIcon className="h-3.5 w-3.5 text-primary-foreground" />
         </div>
         <span className="font-semibold text-sm hidden sm:inline">Studio</span>
       </Link>
@@ -142,7 +153,7 @@ function TopBar() {
         <Breadcrumb />
       </div>
 
-      {/* Balance badge + New Lyrics shortcut + Navigation menu */}
+      {/* Balance badge + optional New Lyrics shortcut + Navigation menu */}
       <div className="flex items-center gap-2 shrink-0">
         {balance !== null && (
           <span
@@ -153,89 +164,44 @@ function TopBar() {
             {balance}
           </span>
         )}
-        <Link
-          to="/music/lyrics/new"
-          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium border border-border bg-background hover:bg-accent transition-colors"
-          data-testid="new-lyrics-btn"
-          aria-label="New lyrics"
-        >
-          <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-          <span className="hidden sm:inline">New Lyrics</span>
-        </Link>
-        <NavMenu items={MUSIC_NAV_ITEMS} onReportBug={handleReportBug} />
+        {showNewLyrics && (
+          <Link
+            to="/music/lyrics/new"
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium border border-border bg-background hover:bg-accent transition-colors"
+            data-testid="new-lyrics-btn"
+            aria-label="New lyrics"
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="hidden sm:inline">New Lyrics</span>
+          </Link>
+        )}
+        <NavMenu items={navItems} onReportBug={handleReportBug} />
       </div>
     </header>
   );
 }
 
 /**
- * Layout wrapper used by all non-Home pages.
- * Renders the TopBar above the page content.
+ * Layout wrapper for /music/* and /settings pages.
+ * Uses Music icon in branding and shows the 'New Lyrics' shortcut button.
  */
 function PageLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex flex-col min-h-screen">
-      <TopBar />
+      <TopBar BrandIcon={Music} navItems={MUSIC_NAV_ITEMS} showNewLyrics />
       <main className="flex-1 overflow-auto">{children}</main>
     </div>
   );
 }
 
 /**
- * Top bar for /video/* pages.
- *
- * Uses a Film icon in the branding area and VIDEO_NAV_ITEMS in the menu.
- * Does NOT show the music-specific 'New Lyrics' shortcut button.
- */
-function VideoTopBar() {
-  const { handleReportBug } = useReportBug();
-  const { balance } = usePoeBalanceContext();
-  return (
-    <header
-      className="sticky top-0 z-40 flex items-center justify-between h-14 px-4 border-b bg-background/95 backdrop-blur-sm gap-4"
-      data-testid="top-bar"
-    >
-      {/* Branding */}
-      <Link
-        to="/"
-        className="flex items-center gap-2 shrink-0 hover:opacity-75 transition-opacity"
-        aria-label="Studio home"
-      >
-        <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center shrink-0">
-          <Film className="h-3.5 w-3.5 text-primary-foreground" />
-        </div>
-        <span className="font-semibold text-sm hidden sm:inline">Studio</span>
-      </Link>
-
-      {/* Breadcrumbs */}
-      <div className="flex-1 min-w-0 overflow-hidden">
-        <Breadcrumb />
-      </div>
-
-      {/* Balance badge + Navigation menu (no New Lyrics button) */}
-      <div className="flex items-center gap-2 shrink-0">
-        {balance !== null && (
-          <span
-            className="text-xs text-muted-foreground tabular-nums"
-            data-testid="poe-balance"
-            aria-label={`POE balance: ${balance}`}
-          >
-            {balance}
-          </span>
-        )}
-        <NavMenu items={VIDEO_NAV_ITEMS} onReportBug={handleReportBug} />
-      </div>
-    </header>
-  );
-}
-
-/**
- * Layout wrapper for /video/* pages with the video-specific TopBar.
+ * Layout wrapper for /video/* pages.
+ * Uses Film icon in branding; does NOT show the music-specific 'New Lyrics' button.
  */
 function VideoPageLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex flex-col min-h-screen">
-      <VideoTopBar />
+      <TopBar BrandIcon={Film} navItems={VIDEO_NAV_ITEMS} />
       <main className="flex-1 overflow-auto">{children}</main>
     </div>
   );
