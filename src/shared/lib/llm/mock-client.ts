@@ -1,4 +1,10 @@
-import type { LLMClient, ChatMessage } from "./types";
+import type { LLMClient, ChatMessage, ChatWithToolsResponse, ToolDefinition } from "./types";
+import {
+  singleToolCallResponse,
+  multiToolCallResponse,
+  unknownToolResponse,
+  plainTextResponse,
+} from "@/video/lib/__fixtures__/chatToolFixtures";
 // Vite inlines these fixture files as strings at build time via the `?raw` suffix.
 import lyricsFixture1 from "./fixtures/lyrics-response.txt?raw";
 import lyricsFixture2 from "./fixtures/lyrics-response-2.txt?raw";
@@ -106,5 +112,24 @@ export class MockLLMClient implements LLMClient {
       return window.__mockLLMAudioUrl;
     }
     return audioUrlFixture.trim();
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async chatWithTools(messages: ChatMessage[], _tools: ToolDefinition[], _model?: string): Promise<ChatWithToolsResponse> {
+    await this.delay();
+    // Select fixture based on the last user message content.
+    const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
+    const content = lastUserMessage?.content.toLowerCase() ?? "";
+
+    if (content.includes("multi") || content.includes("add shot") || content.includes("settings")) {
+      return multiToolCallResponse;
+    }
+    if (content.includes("unknown") || content.includes("nonexistent")) {
+      return unknownToolResponse;
+    }
+    if (content.includes("update") || content.includes("prompt") || content.includes("shot")) {
+      return singleToolCallResponse;
+    }
+    return plainTextResponse;
   }
 }

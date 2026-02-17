@@ -1,4 +1,4 @@
-import type { LLMClient, ChatMessage } from "./types";
+import type { LLMClient, ChatMessage, ChatWithToolsResponse, ToolDefinition } from "./types";
 import { log } from "@/music/lib/actionLog";
 
 /**
@@ -123,6 +123,30 @@ export class LoggingLLMClient implements LLMClient {
       log({
         category: "llm:response",
         action: "llm:audio:error",
+        data: { error: err instanceof Error ? err.message : String(err) },
+      });
+      throw err;
+    }
+  }
+
+  async chatWithTools(messages: ChatMessage[], tools: ToolDefinition[], model?: string): Promise<ChatWithToolsResponse> {
+    log({
+      category: "llm:request",
+      action: "llm:chatWithTools:start",
+      data: { historyLength: messages.length, toolCount: tools.length, model },
+    });
+    try {
+      const result = await this.inner.chatWithTools(messages, tools, model);
+      log({
+        category: "llm:response",
+        action: "llm:chatWithTools:complete",
+        data: { text: result.text, toolCallCount: result.toolCalls.length },
+      });
+      return result;
+    } catch (err) {
+      log({
+        category: "llm:response",
+        action: "llm:chatWithTools:error",
         data: { error: err instanceof Error ? err.message : String(err) },
       });
       throw err;

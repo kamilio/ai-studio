@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import type { LLMClient, ChatMessage } from "./types";
+import type { LLMClient, ChatMessage, ChatWithToolsResponse, ToolDefinition } from "./types";
 
 /**
  * Real LLM client that routes all requests through Poe's OpenAI-compatible API.
@@ -103,5 +103,24 @@ export class PoeLLMClient implements LLMClient {
     const audioUrl = response.choices[0]?.message?.content;
     if (!audioUrl) throw new Error("elevenlabs-v3 returned an empty response");
     return audioUrl;
+  }
+
+  async chatWithTools(messages: ChatMessage[], tools: ToolDefinition[], model?: string): Promise<ChatWithToolsResponse> {
+    const response = await this.client.chat.completions.create({
+      model: model ?? "claude-sonnet-4.5",
+      messages,
+      tools,
+    });
+
+    const message = response.choices[0]?.message;
+    const text = message?.content ?? "";
+
+    const toolCalls = (message?.tool_calls ?? []).map((tc) => ({
+      id: tc.id,
+      name: tc.function.name,
+      args: JSON.parse(tc.function.arguments) as Record<string, unknown>,
+    }));
+
+    return { text, toolCalls };
   }
 }
