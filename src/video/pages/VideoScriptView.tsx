@@ -133,6 +133,15 @@ interface ChatMessage {
   content: string;
 }
 
+/**
+ * Represents a single in-flight or failed generation slot in the VIDEO HISTORY
+ * grid. On success, the slot is removed from this list and the real entry
+ * appears in shot.video.history.
+ */
+type GenerationSlotState =
+  | { status: "pending"; slotId: string }
+  | { status: "error"; slotId: string; errorMessage: string; prompt: string };
+
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
 function generateId(): string {
@@ -927,10 +936,15 @@ function ShotModeView({
   isMountedRef,
 }: ShotModeViewProps) {
   const totalShots = script.shots.length;
+  const { refreshBalance } = usePoeBalanceContext();
 
   // ── Narration local state ──────────────────────────────────────────────────
   const [narrationText, setNarrationText] = useState(shot.narration.text);
   const [generateCount, setGenerateCount] = useState(1);
+
+  // ── Generation state ───────────────────────────────────────────────────────
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationSlots, setGenerationSlots] = useState<GenerationSlotState[]>([]);
 
   // ── Confirm delete for history entries ────────────────────────────────────
   const [confirmDeleteIndex, setConfirmDeleteIndex] = useState<number | null>(null);
@@ -1260,6 +1274,223 @@ function ShotModeView({
     }
   }
 
+  // ── Video generation ──────────────────────────────────────────────────────
+
+  /**
+   * Fire generateVideo() N times in parallel (N = generateCount).
+   * Each call is tracked as a slot. On completion (success or error) the
+   * slot is resolved independently so partial results appear immediately.
+   * refreshBalance is called once after all slots settle.
+   */
+  const handleGenerate = useCallback(async () => {
+    if (isGenerating) return;
+
+    const settings = getSettings();
+    const apiKey = settings?.poeApiKey;
+    let client;
+    try {
+      client = createLLMClient(apiKey ?? undefined);
+    } catch (err) {
+      // No API key and not in mock mode — surface as an error slot
+      const slotId = generateId();
+      if (isMountedRef.current) {
+        setGenerationSlots([
+          {
+            status: "error",
+            slotId,
+            errorMessage: err instanceof Error ? err.message : "Failed to create LLM client.",
+            prompt: shot.prompt,
+          },
+        ]);
+      }
+      return;
+    }
+
+    // Build initial pending slots
+    const initialSlots: GenerationSlotState[] = Array.from(
+      { length: generateCount },
+      () => ({ status: "pending" as const, slotId: generateId() })
+    );
+
+    if (isMountedRef.current) {
+      setIsGenerating(true);
+      setGenerationSlots(initialSlots);
+    }
+
+    const promptText = shot.prompt;
+
+    // Run all slots in parallel
+    const slotPromises = initialSlots.map(async (slot) => {
+      try {
+        const url = await client.generateVideo(promptText);
+        if (!isMountedRef.current) return;
+
+        // Append to storage history
+        const latestScript = videoStorageService.getScript(script.id);
+        if (!latestScript) return;
+        const latestShot = latestScript.shots.find((s) => s.id === shot.id);
+        if (!latestShot) return;
+
+        const newEntry: VideoHistoryEntry = {
+          url,
+          generatedAt: new Date().toISOString(),
+          pinned: false,
+        };
+        const updatedHistory = [...latestShot.video.history, newEntry];
+        const updatedShots = latestScript.shots.map((s) =>
+          s.id === shot.id
+            ? { ...s, video: { ...s.video, history: updatedHistory } }
+            : s
+        );
+        const updated = videoStorageService.updateScript(script.id, {
+          shots: updatedShots,
+        });
+        if (updated && isMountedRef.current) {
+          onUpdate(updated);
+        }
+
+        // Remove this slot from pending slots on success
+        if (isMountedRef.current) {
+          setGenerationSlots((prev) =>
+            prev.filter((sl) => sl.slotId !== slot.slotId)
+          );
+        }
+      } catch (err) {
+        if (!isMountedRef.current) return;
+        // Replace pending slot with error slot
+        setGenerationSlots((prev) =>
+          prev.map((sl) =>
+            sl.slotId === slot.slotId
+              ? {
+                  status: "error" as const,
+                  slotId: sl.slotId,
+                  errorMessage:
+                    err instanceof Error ? err.message : "Generation failed.",
+                  prompt: promptText,
+                }
+              : sl
+          )
+        );
+      }
+    });
+
+    // Wait for all slots to settle, then refresh balance and clear loading state
+    await Promise.allSettled(slotPromises);
+
+    if (isMountedRef.current) {
+      setIsGenerating(false);
+      refreshBalance(apiKey);
+    }
+  }, [
+    isGenerating,
+    generateCount,
+    shot.id,
+    shot.prompt,
+    script.id,
+    isMountedRef,
+    onUpdate,
+    refreshBalance,
+  ]);
+
+  /**
+   * Retry a single failed slot.
+   */
+  const handleRetrySlot = useCallback(
+    async (slotId: string, prompt: string) => {
+      const settings = getSettings();
+      const apiKey = settings?.poeApiKey;
+      let client;
+      try {
+        client = createLLMClient(apiKey ?? undefined);
+      } catch (err) {
+        if (isMountedRef.current) {
+          setGenerationSlots((prev) =>
+            prev.map((sl) =>
+              sl.slotId === slotId
+                ? {
+                    status: "error" as const,
+                    slotId,
+                    errorMessage:
+                      err instanceof Error ? err.message : "Failed to create LLM client.",
+                    prompt,
+                  }
+                : sl
+            )
+          );
+        }
+        return;
+      }
+
+      // Mark slot as pending again
+      if (isMountedRef.current) {
+        setGenerationSlots((prev) =>
+          prev.map((sl) =>
+            sl.slotId === slotId
+              ? { status: "pending" as const, slotId }
+              : sl
+          )
+        );
+        setIsGenerating(true);
+      }
+
+      try {
+        const url = await client.generateVideo(prompt);
+        if (!isMountedRef.current) return;
+
+        const latestScript = videoStorageService.getScript(script.id);
+        if (!latestScript) return;
+        const latestShot = latestScript.shots.find((s) => s.id === shot.id);
+        if (!latestShot) return;
+
+        const newEntry: VideoHistoryEntry = {
+          url,
+          generatedAt: new Date().toISOString(),
+          pinned: false,
+        };
+        const updatedHistory = [...latestShot.video.history, newEntry];
+        const updatedShots = latestScript.shots.map((s) =>
+          s.id === shot.id
+            ? { ...s, video: { ...s.video, history: updatedHistory } }
+            : s
+        );
+        const updated = videoStorageService.updateScript(script.id, {
+          shots: updatedShots,
+        });
+        if (updated && isMountedRef.current) {
+          onUpdate(updated);
+        }
+
+        if (isMountedRef.current) {
+          setGenerationSlots((prev) =>
+            prev.filter((sl) => sl.slotId !== slotId)
+          );
+        }
+      } catch (err) {
+        if (!isMountedRef.current) return;
+        setGenerationSlots((prev) =>
+          prev.map((sl) =>
+            sl.slotId === slotId
+              ? {
+                  status: "error" as const,
+                  slotId,
+                  errorMessage:
+                    err instanceof Error ? err.message : "Generation failed.",
+                  prompt,
+                }
+              : sl
+          )
+        );
+      } finally {
+        // Clear loading state and refresh balance after retry settles
+        if (isMountedRef.current) {
+          setIsGenerating(false);
+          refreshBalance(apiKey);
+        }
+      }
+    },
+    [script.id, shot.id, isMountedRef, onUpdate, refreshBalance]
+  );
+
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
@@ -1505,9 +1736,11 @@ function ShotModeView({
                 key={n}
                 type="button"
                 onClick={() => setGenerateCount(n)}
+                disabled={isGenerating}
                 className={[
                   "px-3 py-1.5 text-xs font-medium transition-colors",
                   n > 1 ? "border-l border-border" : "",
+                  isGenerating ? "opacity-50 cursor-not-allowed" : "",
                   generateCount === n
                     ? "bg-primary text-primary-foreground"
                     : "bg-background text-muted-foreground hover:text-foreground hover:bg-accent",
@@ -1523,12 +1756,24 @@ function ShotModeView({
           {/* Generate button */}
           <button
             type="button"
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            onClick={() => void handleGenerate()}
+            disabled={isGenerating}
+            className={[
+              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+              isGenerating
+                ? "bg-primary/60 text-primary-foreground cursor-not-allowed opacity-70"
+                : "bg-primary text-primary-foreground hover:bg-primary/90",
+            ].join(" ")}
             data-testid="generate-btn"
             aria-label={`Generate ${generateCount} video${generateCount > 1 ? "s" : ""}`}
+            aria-busy={isGenerating}
           >
-            <Sparkles className="h-3.5 w-3.5" />
-            Generate
+            {isGenerating ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
+            {isGenerating ? "Generating…" : "Generate"}
           </button>
         </div>
       </div>
@@ -1539,12 +1784,13 @@ function ShotModeView({
           Video History
         </span>
 
-        {shot.video.history.length === 0 ? (
+        {shot.video.history.length === 0 && generationSlots.length === 0 ? (
           <p className="text-xs text-muted-foreground py-2">
             No videos generated yet. Click Generate to create your first clip.
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {/* Existing history cards */}
             {shot.video.history.map((entry, idx) => {
               const isSelected = shot.video.selectedUrl === entry.url;
               return (
@@ -1662,6 +1908,67 @@ function ShotModeView({
                         🗑
                       </button>
                     </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* In-flight generation slots (pending skeleton or error) */}
+            {generationSlots.map((slot, slotIdx) => {
+              const versionLabel = `v${shot.video.history.length + slotIdx + 1}`;
+              if (slot.status === "pending") {
+                return (
+                  <div
+                    key={slot.slotId}
+                    className="relative rounded-lg border border-border overflow-hidden animate-pulse"
+                    data-testid={`video-generation-skeleton-${slotIdx}`}
+                    aria-label={`Generating video ${versionLabel}`}
+                  >
+                    {/* Skeleton thumbnail area */}
+                    <div className="relative aspect-video bg-muted flex items-center justify-center">
+                      <Loader2 className="h-6 w-6 text-muted-foreground animate-spin" />
+                      {/* Version label */}
+                      <div className="absolute top-1.5 right-1.5 rounded-md bg-background/80 px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
+                        {versionLabel}
+                      </div>
+                    </div>
+                    {/* Skeleton footer */}
+                    <div className="px-2 py-1.5 bg-background space-y-1.5">
+                      <div className="h-3 w-20 rounded bg-muted" />
+                      <div className="flex gap-1">
+                        <div className="h-5 w-14 rounded bg-muted" />
+                        <div className="h-5 w-7 rounded bg-muted" />
+                        <div className="h-5 w-7 rounded bg-muted" />
+                        <div className="h-5 w-7 rounded bg-muted" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              // Error slot
+              return (
+                <div
+                  key={slot.slotId}
+                  className="relative rounded-lg border border-destructive/50 overflow-hidden"
+                  data-testid={`video-generation-error-${slotIdx}`}
+                >
+                  {/* Error thumbnail area */}
+                  <div className="relative aspect-video bg-destructive/10 flex flex-col items-center justify-center gap-2 p-3">
+                    <div className="absolute top-1.5 right-1.5 rounded-md bg-background/80 px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
+                      {versionLabel}
+                    </div>
+                    <p className="text-xs text-destructive text-center line-clamp-3">
+                      {slot.errorMessage}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void handleRetrySlot(slot.slotId, slot.prompt)}
+                      className="flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium border border-destructive/50 bg-background text-destructive hover:bg-destructive/10 transition-colors"
+                      data-testid={`video-retry-btn-${slotIdx}`}
+                      aria-label={`Retry generation for ${versionLabel}`}
+                    >
+                      Retry
+                    </button>
                   </div>
                 </div>
               );
