@@ -88,7 +88,11 @@ function migrateScript(raw: Script): Script {
     duration: VIDEO_DURATIONS[0],
     ...shot,
   }));
-  return { ...raw, settings, shots };
+  // Backfill templates: older scripts written before the templates field was
+  // added may not have it. Default to an empty record to prevent crashes in
+  // code that calls Object.values(script.templates).
+  const templates: Script["templates"] = raw.templates ?? {};
+  return { ...raw, settings, shots, templates };
 }
 
 function getScripts(): Script[] {
