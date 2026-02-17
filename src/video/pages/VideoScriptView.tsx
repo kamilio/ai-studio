@@ -59,7 +59,7 @@ import {
   KeyboardEvent,
   type MutableRefObject,
 } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   DndContext,
   closestCenter,
@@ -2806,15 +2806,29 @@ function ShotModeView({
 function VideoScriptViewInner() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { refreshBalance } = usePoeBalanceContext();
+
+  /**
+   * React Router state passed by the Pinned Videos page (and potentially other
+   * pages) to pre-activate Shot mode at a specific shot index.
+   * Shape: { targetShotIndex?: number }
+   */
+  const locationState = location.state as { targetShotIndex?: number } | null;
 
   // ─── Script state ──────────────────────────────────────────────────────────
   const [script, setScript] = useState<Script | null>(null);
   const [notFound, setNotFound] = useState(false);
 
   // ─── Editor state ──────────────────────────────────────────────────────────
-  const [mode, setMode] = useState<EditorMode>("write");
-  const [activeShotIndex, setActiveShotIndex] = useState(0);
+  const [mode, setMode] = useState<EditorMode>(() =>
+    typeof locationState?.targetShotIndex === "number" ? "shot" : "write"
+  );
+  const [activeShotIndex, setActiveShotIndex] = useState<number>(() =>
+    typeof locationState?.targetShotIndex === "number"
+      ? locationState.targetShotIndex
+      : 0
+  );
   const [mobileTab, setMobileTab] = useState<MobileTab>("script");
 
   // ─── Chat state ───────────────────────────────────────────────────────────
