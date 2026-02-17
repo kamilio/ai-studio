@@ -513,6 +513,17 @@ function computeSubtitlesState(shots: Shot[]): ToggleState {
   return "mixed";
 }
 
+// ─── Narration state helpers ───────────────────────────────────────────────────
+
+function computeNarrationState(shots: Shot[]): ToggleState {
+  if (shots.length === 0) return "off";
+  const allOn = shots.every((s) => s.narration.enabled);
+  const allOff = shots.every((s) => !s.narration.enabled);
+  if (allOn) return "on";
+  if (allOff) return "off";
+  return "mixed";
+}
+
 // ─── MixedToggle ──────────────────────────────────────────────────────────────
 
 interface MixedToggleProps {
@@ -3497,6 +3508,30 @@ function VideoScriptViewInner() {
     }
   }, [script]);
 
+  // ─── Narration toggle (global — mixed-state logic) ────────────────────────
+  // off → set all on; on → set all off; mixed → set all on
+  const handleNarrationGlobalToggle = useCallback(() => {
+    if (!script) return;
+    const state = computeNarrationState(script.shots);
+    const newEnabled = state !== "on";
+    const updatedShots = script.shots.map((s) => ({
+      ...s,
+      narration: { ...s.narration, enabled: newEnabled },
+    }));
+    const updated = videoStorageService.updateScript(script.id, {
+      shots: updatedShots,
+      settings: { ...script.settings, narrationEnabled: newEnabled },
+    });
+    if (updated && isMounted.current) {
+      log({
+        category: "user:action",
+        action: "video:script:narration:global",
+        data: { scriptId: script.id, newEnabled },
+      });
+      setScript(updated);
+    }
+  }, [script]);
+
   // ─── Export Video (YAML download) ────────────────────────────────────────
   const handleExportVideo = useCallback(() => {
     if (!script) return;
@@ -3659,6 +3694,15 @@ function VideoScriptViewInner() {
       : subtitlesState === "on"
       ? "Subtitles on"
       : "Subtitles off";
+
+  // Narration mixed-state for global toggle
+  const narrationState = computeNarrationState(script.shots);
+  const narrationLabel =
+    narrationState === "mixed"
+      ? "Narration (mixed)"
+      : narrationState === "on"
+      ? "Narration on"
+      : "Narration off";
 
   // Panel header label
   const headerLabel =
@@ -3915,8 +3959,21 @@ function VideoScriptViewInner() {
         className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-border bg-background shrink-0 flex-wrap gap-y-2"
         data-testid="editor-bottom-bar"
       >
-        {/* Left: Subtitles toggle + shot info + shot mode prev/next */}
+        {/* Left: Narration toggle + Subtitles toggle + shot info + shot mode prev/next */}
         <div className="flex items-center gap-3 text-sm flex-wrap">
+          {/* Narration toggle — global MixedToggle */}
+          <div className="flex items-center gap-1.5">
+            <MixedToggle
+              state={narrationState}
+              onClick={handleNarrationGlobalToggle}
+              data-testid="narration-global-toggle"
+              aria-label={narrationLabel}
+            />
+            <span className="text-xs font-medium text-muted-foreground">
+              Narration
+            </span>
+          </div>
+
           {/* Subtitles toggle — global MixedToggle */}
           <div className="flex items-center gap-1.5">
             <MixedToggle
