@@ -57,6 +57,7 @@ import {
   useCallback,
   FormEvent,
   KeyboardEvent,
+  ChangeEvent,
   type MutableRefObject,
 } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
@@ -120,11 +121,13 @@ import type {
   AudioSource,
   VideoHistoryEntry,
   LocalTemplate,
+  GlobalTemplate,
   TemplateCategory,
 } from "@/video/lib/storage/types";
 import { createLLMClient } from "@/shared/lib/llm/factory";
 import { usePoeBalanceContext } from "@/shared/context/PoeBalanceContext";
 import { dump as yamlDump } from "js-yaml";
+import TemplateAutocomplete from "@/video/components/TemplateAutocomplete";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -539,6 +542,16 @@ function ShotCard({
   const [promptValue, setPromptValue] = useState(shot.prompt);
   const promptRef = useRef<HTMLTextAreaElement>(null);
 
+  // ── Autocomplete state (US-059) ─────────────────────────────────────────────
+  const [autocompleteOpen, setAutocompleteOpen] = useState(false);
+  const [autocompleteQuery, setAutocompleteQuery] = useState("");
+  const autocompleteRef = useRef<HTMLDivElement>(null);
+
+  // ── Global templates for autocomplete (US-059) ──────────────────────────────
+  const [globalTemplates, setGlobalTemplates] = useState<GlobalTemplate[]>(() =>
+    videoStorageService.listGlobalTemplates()
+  );
+
   // ── Poe balance ─────────────────────────────────────────────────────────────
   const { refreshBalance } = usePoeBalanceContext();
 
@@ -575,6 +588,33 @@ function ShotCard({
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [menuOpen]);
+
+  // Close autocomplete on outside click (US-059)
+  useEffect(() => {
+    if (!autocompleteOpen) return;
+    function handleOutside(e: MouseEvent) {
+      if (
+        autocompleteRef.current &&
+        !autocompleteRef.current.contains(e.target as Node)
+      ) {
+        setAutocompleteOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [autocompleteOpen]);
+
+  // Close autocomplete on Escape (US-059)
+  useEffect(() => {
+    if (!autocompleteOpen) return;
+    function handleKeyDown(e: globalThis.KeyboardEvent) {
+      if (e.key === "Escape") {
+        setAutocompleteOpen(false);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [autocompleteOpen]);
 
   // ── Rename handlers ─────────────────────────────────────────────────────────
 
@@ -868,6 +908,86 @@ function ShotCard({
     }, 0);
   }
 
+  // ── Autocomplete detection in textarea onChange (US-059) ───────────────────
+
+  function handlePromptChange(e: ChangeEvent<HTMLTextAreaElement>) {
+    const newValue = e.target.value;
+    setPromptValue(newValue);
+
+    // Detect '{{' typed to open autocomplete
+    const cursorPos = e.target.selectionStart ?? newValue.length;
+    const textBefore = newValue.slice(0, cursorPos);
+    const lastDoubleOpen = textBefore.lastIndexOf("{{");
+    if (lastDoubleOpen !== -1) {
+      const query = textBefore.slice(lastDoubleOpen + 2);
+      if (!query.includes("}")) {
+        // Refresh global templates on first open
+        if (!autocompleteOpen) {
+          setGlobalTemplates(videoStorageService.listGlobalTemplates());
+        }
+        setAutocompleteOpen(true);
+        setAutocompleteQuery(query);
+      } else {
+        setAutocompleteOpen(false);
+      }
+    } else {
+      setAutocompleteOpen(false);
+    }
+  }
+
+  // ── Insert from autocomplete in Write mode textarea (US-059) ───────────────
+
+  function insertTemplateFromAutocomplete(name: string) {
+    const textarea = promptRef.current;
+    if (!textarea) return;
+    setAutocompleteOpen(false);
+
+    // Delete '{{' + query, then insert {{name}}
+    const cursorPos = textarea.selectionStart ?? promptValue.length;
+    const textBefore = promptValue.slice(0, cursorPos);
+    const lastDoubleOpen = textBefore.lastIndexOf("{{");
+    const insertion = `{{${name}}}`;
+
+    let newValue: string;
+    let newCursorPos: number;
+    if (lastDoubleOpen !== -1) {
+      // Replace from '{{' to cursor with {{name}}
+      newValue =
+        promptValue.slice(0, lastDoubleOpen) +
+        insertion +
+        promptValue.slice(cursorPos);
+      newCursorPos = lastDoubleOpen + insertion.length;
+    } else {
+      newValue =
+        promptValue.slice(0, cursorPos) + insertion + promptValue.slice(cursorPos);
+      newCursorPos = cursorPos + insertion.length;
+    }
+
+    setPromptValue(newValue);
+    // Persist immediately
+    const updatedShots = script.shots.map((s) =>
+      s.id === shot.id ? { ...s, prompt: newValue } : s
+    );
+    const updated = videoStorageService.updateScript(script.id, {
+      shots: updatedShots,
+    });
+    if (updated) {
+      onUpdate(updated);
+    }
+    // Restore focus and cursor
+    setTimeout(() => {
+      if (!textarea) return;
+      textarea.focus();
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  }
+
+  // ── Local templates (all local, not just referenced) for autocomplete ───────
+
+  const allLocalTemplates = Object.values(script.templates).filter(
+    (tmpl) => !tmpl.global
+  );
+
   // ── Compute local template chips (ONLY local templates referenced in prompt) ─
 
   const localTemplateChips = Object.values(script.templates).filter(
@@ -987,7 +1107,7 @@ function ShotCard({
 
         {/* ── Card body ───────────────────────────────────────────────────── */}
         <div className="px-3 py-3 space-y-3">
-          {/* Prompt textarea */}
+          {/* Prompt textarea with autocomplete (US-059) */}
           <div>
             <label
               htmlFor={`shot-prompt-${shot.id}`}
@@ -995,18 +1115,29 @@ function ShotCard({
             >
               Video prompt
             </label>
-            <Textarea
-              id={`shot-prompt-${shot.id}`}
-              ref={promptRef}
-              value={promptValue}
-              onChange={(e) => setPromptValue(e.target.value)}
-              onBlur={handlePromptBlur}
-              placeholder="Describe this shot…"
-              rows={3}
-              className="resize-none text-sm"
-              data-testid={`shot-prompt-${shot.id}`}
-              aria-label={`Video prompt for shot ${index + 1}`}
-            />
+            <div className="relative">
+              <Textarea
+                id={`shot-prompt-${shot.id}`}
+                ref={promptRef}
+                value={promptValue}
+                onChange={handlePromptChange}
+                onBlur={handlePromptBlur}
+                placeholder="Describe this shot…"
+                rows={3}
+                className="resize-none text-sm"
+                data-testid={`shot-prompt-${shot.id}`}
+                aria-label={`Video prompt for shot ${index + 1}`}
+              />
+              {/* Autocomplete dropdown */}
+              <TemplateAutocomplete
+                ref={autocompleteRef}
+                open={autocompleteOpen}
+                query={autocompleteQuery}
+                localTemplates={allLocalTemplates}
+                globalTemplates={globalTemplates}
+                onSelect={insertTemplateFromAutocomplete}
+              />
+            </div>
           </div>
 
           {/* Template chips row — always show '+add'; local chips only when present */}
@@ -1852,15 +1983,6 @@ function ShotModeView({
     setGlobalTemplates(videoStorageService.listGlobalTemplates());
   }, [shot.id]);
 
-  // ── Filtered autocomplete items ──────────────────────────────────────────
-
-  const filteredLocalTemplates = localTemplates.filter((t) =>
-    t.name.toLowerCase().startsWith(autocompleteQuery.toLowerCase())
-  );
-  const filteredGlobalTemplates = globalTemplates.filter((t) =>
-    t.name.toLowerCase().startsWith(autocompleteQuery.toLowerCase())
-  );
-
   // ── Narration handlers ────────────────────────────────────────────────────
 
   function handleNarrationToggle() {
@@ -2453,71 +2575,15 @@ function ShotModeView({
         <div className="relative rounded-md border border-border focus-within:ring-1 focus-within:ring-ring bg-background">
           <EditorContent editor={editor} />
 
-          {/* Autocomplete dropdown */}
-          {autocompleteOpen &&
-            (filteredLocalTemplates.length > 0 ||
-              filteredGlobalTemplates.length > 0) && (
-              <div
-                ref={autocompleteRef}
-                className="absolute left-0 top-full mt-1 z-50 min-w-[200px] max-w-[320px] rounded-md border border-border bg-background shadow-lg py-1"
-                data-testid="template-autocomplete"
-              >
-                {/* Script templates section */}
-                {filteredLocalTemplates.length > 0 && (
-                  <>
-                    <div className="px-3 py-1 text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
-                      Script Templates
-                    </div>
-                    {filteredLocalTemplates.map((tmpl) => (
-                      <button
-                        key={tmpl.name}
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          insertTemplateFromAutocomplete(tmpl.name);
-                        }}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
-                        data-testid={`autocomplete-local-${tmpl.name}`}
-                      >
-                        <span className="font-mono text-primary text-xs">{`{{${tmpl.name}}}`}</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          {tmpl.value.slice(0, 40)}
-                        </span>
-                      </button>
-                    ))}
-                    {filteredGlobalTemplates.length > 0 && (
-                      <div className="my-1 border-t border-border" />
-                    )}
-                  </>
-                )}
-
-                {/* Global templates section */}
-                {filteredGlobalTemplates.length > 0 && (
-                  <>
-                    <div className="px-3 py-1 text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
-                      Global Templates
-                    </div>
-                    {filteredGlobalTemplates.map((tmpl) => (
-                      <button
-                        key={tmpl.name}
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          insertTemplateFromAutocomplete(tmpl.name);
-                        }}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
-                        data-testid={`autocomplete-global-${tmpl.name}`}
-                      >
-                        <span className="font-mono text-primary text-xs">{`{{${tmpl.name}}}`}</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          {tmpl.value.slice(0, 40)}
-                        </span>
-                      </button>
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
+          {/* Autocomplete dropdown (US-059) */}
+          <TemplateAutocomplete
+            ref={autocompleteRef}
+            open={autocompleteOpen}
+            query={autocompleteQuery}
+            localTemplates={localTemplates}
+            globalTemplates={globalTemplates}
+            onSelect={insertTemplateFromAutocomplete}
+          />
         </div>
 
         {/* Template chips row — local templates only */}
