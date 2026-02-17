@@ -16,6 +16,7 @@
  */
 
 import type { Script, GlobalTemplate } from "./types";
+import { VIDEO_DURATIONS } from "@/video/lib/config";
 import { emitQuotaExceeded } from "@/shared/lib/storageQuotaEvents";
 import { log } from "@/music/lib/actionLog";
 
@@ -63,8 +64,36 @@ function generateId(): string {
 
 // ─── Scripts ──────────────────────────────────────────────────────────────────
 
+/**
+ * Backfill any fields that may be absent in scripts written before the
+ * US-066 data-model update.  This is a read-side migration — data in
+ * localStorage is never mutated; callers receive fully populated objects.
+ *
+ * Defaults applied when a field is missing (undefined):
+ *   script.settings.narrationEnabled → false
+ *   script.settings.globalPrompt     → ""
+ *   script.settings.subtitles        → false  (was previously defaulted to true)
+ *   shot.subtitles                   → script.settings.subtitles (or false)
+ *   shot.duration                    → VIDEO_DURATIONS[0] (8)
+ */
+function migrateScript(raw: Script): Script {
+  const settings = {
+    narrationEnabled: false,
+    globalPrompt: "",
+    subtitles: false,
+    ...raw.settings,
+  };
+  const shots = raw.shots.map((shot) => ({
+    subtitles: settings.subtitles,
+    duration: VIDEO_DURATIONS[0],
+    ...shot,
+  }));
+  return { ...raw, settings, shots };
+}
+
 function getScripts(): Script[] {
-  return readJSON<Script[]>(KEYS.scripts) ?? [];
+  const raw = readJSON<Script[]>(KEYS.scripts) ?? [];
+  return raw.map(migrateScript);
 }
 
 /**
@@ -79,8 +108,10 @@ export function createScript(title: string): Script {
     createdAt: now,
     updatedAt: now,
     settings: {
-      subtitles: true,
+      subtitles: false,
       defaultAudio: "video",
+      narrationEnabled: false,
+      globalPrompt: "",
     },
     shots: [],
     templates: {},

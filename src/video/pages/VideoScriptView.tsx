@@ -114,6 +114,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { getSettings } from "@/music/lib/storage";
 import { videoStorageService } from "@/video/lib/storage/storageService";
+import { VIDEO_DURATIONS } from "@/video/lib/config";
 import { log } from "@/music/lib/actionLog";
 import type {
   Script,
@@ -3113,7 +3114,7 @@ function VideoScriptViewInner() {
       title: `Shot ${script.shots.length + 1}`,
       prompt: "",
       narration: {
-        enabled: false,
+        enabled: script.settings.narrationEnabled,
         text: "",
         audioSource: script.settings.defaultAudio,
       },
@@ -3121,6 +3122,8 @@ function VideoScriptViewInner() {
         selectedUrl: null,
         history: [],
       },
+      subtitles: script.settings.subtitles,
+      duration: VIDEO_DURATIONS[0],
     };
     const newIndex = script.shots.length;
     const updatedShots = [...script.shots, newShot];

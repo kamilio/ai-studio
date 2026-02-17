@@ -64,15 +64,23 @@ export interface Shot {
   prompt: string;
   narration: ShotNarration;
   video: ShotVideo;
+  /** Whether to burn subtitles into this shot's clip. Inherits script.settings.subtitles on creation. */
+  subtitles: boolean;
+  /** Clip duration in seconds. Must be one of VIDEO_DURATIONS. Default: VIDEO_DURATIONS[0] (8). */
+  duration: number;
 }
 
 // ─── Script ───────────────────────────────────────────────────────────────────
 
 export interface ScriptSettings {
-  /** Whether to burn subtitles into the final video. Default: true. */
+  /** Whether to burn subtitles into the final video. Default: false. */
   subtitles: boolean;
   /** Default audio source for all shots (overridden per-shot). Default: 'video'. */
   defaultAudio: AudioSource;
+  /** Whether narration is enabled globally. New shots inherit this value. Default: false. */
+  narrationEnabled: boolean;
+  /** Prompt text prepended to every shot during generation. Default: "". */
+  globalPrompt: string;
 }
 
 /**
