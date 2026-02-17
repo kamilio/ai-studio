@@ -8,6 +8,12 @@
  *   /pinned                  → Pinned Songs
  *   /settings                → Settings
  *
+ *   /video/scripts           → Video Scripts
+ *   /video/scripts/:id       → Video Scripts / {script title}
+ *   /video/videos            → All Videos
+ *   /video/videos/pinned     → Pinned Videos
+ *   /video/templates         → Video Templates
+ *
  * Each segment is a clickable link except the last (current page).
  * The bar truncates on overflow; the rightmost segment is always visible via
  * `min-w-0 shrink` on earlier segments and `shrink-0` on the last.
@@ -17,6 +23,7 @@
 
 import { Link, useLocation, useParams } from "react-router-dom";
 import { getMessage } from "@/music/lib/storage/storageService";
+import { getScript } from "@/video/lib/storage/storageService";
 
 interface Segment {
   label: string;
@@ -25,23 +32,57 @@ interface Segment {
 
 function useSegments(): Segment[] {
   const { pathname } = useLocation();
-  const { id: messageId } = useParams<{ id?: string }>();
+  const { id } = useParams<{ id?: string }>();
+
+  // ── Video routes ────────────────────────────────────────────────────────
+
+  // /video/scripts/:id — fetch title from video storage
+  if (pathname.match(/^\/video\/scripts\/[^/]+$/)) {
+    const script = id ? getScript(id) : null;
+    const title = script?.title ?? id ?? "…";
+    return [
+      { label: "Video Scripts", href: "/video/scripts" },
+      { label: title },
+    ];
+  }
+
+  // /video/scripts (list)
+  if (pathname === "/video/scripts") {
+    return [{ label: "Video Scripts" }];
+  }
+
+  // /video/videos/pinned (must be before /video/videos)
+  if (pathname === "/video/videos/pinned") {
+    return [{ label: "Pinned Videos" }];
+  }
+
+  // /video/videos
+  if (pathname === "/video/videos") {
+    return [{ label: "All Videos" }];
+  }
+
+  // /video/templates
+  if (pathname === "/video/templates") {
+    return [{ label: "Video Templates" }];
+  }
+
+  // ── Music routes ────────────────────────────────────────────────────────
 
   // /music/lyrics/:messageId/songs
   if (pathname.match(/^\/music\/lyrics\/[^/]+\/songs/)) {
-    const msg = messageId ? getMessage(messageId) : null;
-    const title = msg?.title ?? messageId ?? "…";
+    const msg = id ? getMessage(id) : null;
+    const title = msg?.title ?? id ?? "…";
     return [
       { label: "Lyrics", href: "/music/lyrics" },
-      { label: title, href: `/music/lyrics/${messageId}` },
+      { label: title, href: `/music/lyrics/${id}` },
       { label: "Songs" },
     ];
   }
 
   // /music/lyrics/:messageId  (but not /music/lyrics/new — treat as generic Lyrics Generator)
-  if (pathname.match(/^\/music\/lyrics\/[^/]+$/) && messageId && messageId !== "new") {
-    const msg = getMessage(messageId);
-    const title = msg?.title ?? messageId;
+  if (pathname.match(/^\/music\/lyrics\/[^/]+$/) && id && id !== "new") {
+    const msg = getMessage(id);
+    const title = msg?.title ?? id;
     return [
       { label: "Lyrics", href: "/music/lyrics" },
       { label: title },

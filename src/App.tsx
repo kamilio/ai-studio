@@ -1,6 +1,6 @@
 import { ReactNode, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { Music, List, Pin, Plus, Settings as SettingsIcon, Bug } from "lucide-react";
+import { Music, List, Pin, Plus, Settings as SettingsIcon, Bug, Film, LayoutList, Video } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Breadcrumb } from "@/music/components/Breadcrumb";
 import { NavMenu } from "@/shared/components/NavMenu";
@@ -16,6 +16,12 @@ import LyricsGenerator from "@/music/pages/LyricsGenerator";
 import SongGenerator from "@/music/pages/SongGenerator";
 import PinnedSongs from "@/music/pages/PinnedSongs";
 import Settings from "@/music/pages/Settings";
+import VideoHome from "@/video/pages/VideoHome";
+import VideoScripts from "@/video/pages/VideoScripts";
+import VideoScriptView from "@/video/pages/VideoScriptView";
+import VideoVideos from "@/video/pages/VideoVideos";
+import VideoPinnedVideos from "@/video/pages/VideoPinnedVideos";
+import VideoTemplates from "@/video/pages/VideoTemplates";
 import { log } from "@/music/lib/actionLog";
 import { useReportBug } from "@/shared/hooks/useReportBug";
 import { Toast } from "@/shared/components/Toast";
@@ -50,6 +56,45 @@ const MUSIC_NAV_ITEMS: MenuItem[] = [
     href: "/music/pinned",
     icon: Pin,
     "data-testid": "nav-menu-pinned",
+  },
+  {
+    label: "Settings",
+    href: "/settings",
+    icon: SettingsIcon,
+    "data-testid": "nav-menu-settings",
+  },
+  {
+    label: "Report Bug",
+    icon: Bug,
+    isReportBug: true,
+    "data-testid": "nav-menu-report-bug",
+  },
+];
+
+export const VIDEO_NAV_ITEMS: MenuItem[] = [
+  {
+    label: "Scripts",
+    href: "/video/scripts",
+    icon: LayoutList,
+    "data-testid": "nav-menu-video-scripts",
+  },
+  {
+    label: "All Videos",
+    href: "/video/videos",
+    icon: Video,
+    "data-testid": "nav-menu-video-all-videos",
+  },
+  {
+    label: "Pinned Videos",
+    href: "/video/videos/pinned",
+    icon: Pin,
+    "data-testid": "nav-menu-video-pinned",
+  },
+  {
+    label: "Templates",
+    href: "/video/templates",
+    icon: Film,
+    "data-testid": "nav-menu-video-templates",
   },
   {
     label: "Settings",
@@ -131,6 +176,66 @@ function PageLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex flex-col min-h-screen">
       <TopBar />
+      <main className="flex-1 overflow-auto">{children}</main>
+    </div>
+  );
+}
+
+/**
+ * Top bar for /video/* pages.
+ *
+ * Uses a Film icon in the branding area and VIDEO_NAV_ITEMS in the menu.
+ * Does NOT show the music-specific 'New Lyrics' shortcut button.
+ */
+function VideoTopBar() {
+  const { handleReportBug } = useReportBug();
+  const { balance } = usePoeBalanceContext();
+  return (
+    <header
+      className="sticky top-0 z-40 flex items-center justify-between h-14 px-4 border-b bg-background/95 backdrop-blur-sm gap-4"
+      data-testid="top-bar"
+    >
+      {/* Branding */}
+      <Link
+        to="/"
+        className="flex items-center gap-2 shrink-0 hover:opacity-75 transition-opacity"
+        aria-label="Studio home"
+      >
+        <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center shrink-0">
+          <Film className="h-3.5 w-3.5 text-primary-foreground" />
+        </div>
+        <span className="font-semibold text-sm hidden sm:inline">Studio</span>
+      </Link>
+
+      {/* Breadcrumbs */}
+      <div className="flex-1 min-w-0 overflow-hidden">
+        <Breadcrumb />
+      </div>
+
+      {/* Balance badge + Navigation menu (no New Lyrics button) */}
+      <div className="flex items-center gap-2 shrink-0">
+        {balance !== null && (
+          <span
+            className="text-xs text-muted-foreground tabular-nums"
+            data-testid="poe-balance"
+            aria-label={`POE balance: ${balance}`}
+          >
+            {balance}
+          </span>
+        )}
+        <NavMenu items={VIDEO_NAV_ITEMS} onReportBug={handleReportBug} />
+      </div>
+    </header>
+  );
+}
+
+/**
+ * Layout wrapper for /video/* pages with the video-specific TopBar.
+ */
+function VideoPageLayout({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-col min-h-screen">
+      <VideoTopBar />
       <main className="flex-1 overflow-auto">{children}</main>
     </div>
   );
@@ -229,6 +334,59 @@ export default function App() {
           }
         />
         <Route path="/music/settings" element={<Navigate to="/settings" replace />} />
+
+        {/* Video — Home has no TopBar */}
+        <Route path="/video" element={<VideoHome />} />
+
+        {/* Video — All Scripts list */}
+        <Route
+          path="/video/scripts"
+          element={
+            <VideoPageLayout>
+              <VideoScripts />
+            </VideoPageLayout>
+          }
+        />
+
+        {/* Video — Script editor (must be after /video/scripts) */}
+        <Route
+          path="/video/scripts/:id"
+          element={
+            <VideoPageLayout>
+              <VideoScriptView />
+            </VideoPageLayout>
+          }
+        />
+
+        {/* Video — All Videos (must be before /video/videos/pinned) */}
+        <Route
+          path="/video/videos"
+          element={
+            <VideoPageLayout>
+              <VideoVideos />
+            </VideoPageLayout>
+          }
+        />
+
+        {/* Video — Pinned Videos */}
+        <Route
+          path="/video/videos/pinned"
+          element={
+            <VideoPageLayout>
+              <VideoPinnedVideos />
+            </VideoPageLayout>
+          }
+        />
+
+        {/* Video — Global Templates */}
+        <Route
+          path="/video/templates"
+          element={
+            <VideoPageLayout>
+              <VideoTemplates />
+            </VideoPageLayout>
+          }
+        />
       </Routes>
     </BrowserRouter>
     </PoeBalanceProvider>
