@@ -3055,7 +3055,7 @@ function ShotModeView({
               const isSelected = shot.video.selectedUrl === entry.url;
               return (
                 <div
-                  key={entry.url}
+                  key={entry.generatedAt}
                   className={[
                     "relative rounded-lg border overflow-hidden",
                     isSelected
