@@ -101,7 +101,6 @@ import {
   X,
   Tags,
   GripVertical,
-  CheckCircle,
   ChevronLeft,
   ChevronRight,
   Sparkles,
@@ -1438,21 +1437,18 @@ function ShotCard({
             </span>
           </div>
 
-          {/* Selected video pill */}
-          {shot.video.selectedUrl && (
-            <div className="flex items-center gap-1.5">
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-foreground max-w-[200px]"
-                data-testid={`selected-video-pill-${shot.id}`}
-                title={shot.video.selectedUrl}
-              >
-                <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
-                <span className="truncate">
-                  {extractFilename(shot.video.selectedUrl)}
-                </span>
-              </span>
-            </div>
-          )}
+          {/* Selected video preview / pill */}
+          {shot.video.selectedUrl ? (
+            <video
+              src={shot.video.selectedUrl}
+              muted
+              loop
+              playsInline
+              className="w-full rounded-md object-contain"
+              style={{ maxHeight: "120px" }}
+              data-testid={`shot-video-preview-${shot.id}`}
+            />
+          ) : null}
 
           {/* → Shot view link */}
           <div className="flex justify-end">
