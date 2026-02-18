@@ -23,6 +23,7 @@ import { NavMenu } from "@/shared/components/NavMenu";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { VIDEO_NAV_ITEMS } from "@/App";
 import { videoStorageService } from "@/video/lib/storage/storageService";
+import { DEFAULT_VIDEO_DURATION } from "@/video/lib/config";
 import type { Script } from "@/video/lib/storage/types";
 import { createLLMClient } from "@/shared/lib/llm/factory";
 import { getSettings } from "@/music/lib/storage";
@@ -381,6 +382,8 @@ export default function VideoHome() {
           selectedUrl: null,
           history: [],
         },
+        subtitles: false,
+        duration: DEFAULT_VIDEO_DURATION,
       }));
 
       // Persist to storage
