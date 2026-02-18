@@ -14,7 +14,7 @@
  */
 
 import type { Script, Shot, AudioSource } from "./storage/types";
-import { VIDEO_DURATIONS } from "./config";
+import { DEFAULT_VIDEO_DURATION } from "./config";
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -36,7 +36,7 @@ function makeShot(title: string, prompt: string, script: Script): Shot {
       history: [],
     },
     subtitles: script.settings.subtitles,
-    duration: VIDEO_DURATIONS[0],
+    duration: DEFAULT_VIDEO_DURATION,
   };
 }
 

@@ -16,7 +16,7 @@
  */
 
 import type { Script, GlobalTemplate } from "./types";
-import { VIDEO_DURATIONS } from "@/video/lib/config";
+import { DEFAULT_VIDEO_DURATION } from "@/video/lib/config";
 import { emitQuotaExceeded } from "@/shared/lib/storageQuotaEvents";
 import { log } from "@/music/lib/actionLog";
 
@@ -25,6 +25,7 @@ import { log } from "@/music/lib/actionLog";
 const KEYS = {
   scripts: "ai-studio:video-scripts",
   globalTemplates: "ai-studio:video-global-templates",
+  selectedModels: "ai-studio:video-selected-models",
 } as const;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -74,19 +75,19 @@ function generateId(): string {
  *   script.settings.globalPrompt     → ""
  *   script.settings.subtitles        → false  (was previously defaulted to true)
  *   shot.subtitles                   → script.settings.subtitles (or false)
- *   shot.duration                    → VIDEO_DURATIONS[0] (8)
+ *   shot.duration                    → DEFAULT_VIDEO_DURATION (8)
  */
 function migrateScript(raw: Script): Script {
   const settings = {
-    narrationEnabled: false,
-    globalPrompt: "",
-    subtitles: false,
     ...raw.settings,
+    narrationEnabled: raw.settings.narrationEnabled ?? false,
+    globalPrompt: raw.settings.globalPrompt ?? "",
+    subtitles: raw.settings.subtitles ?? false,
   };
   const shots = raw.shots.map((shot) => ({
-    subtitles: settings.subtitles,
-    duration: VIDEO_DURATIONS[0],
     ...shot,
+    subtitles: shot.subtitles ?? settings.subtitles,
+    duration: shot.duration ?? DEFAULT_VIDEO_DURATION,
   }));
   // Backfill templates: older scripts written before the templates field was
   // added may not have it. Default to an empty record to prevent crashes in
@@ -266,6 +267,16 @@ export function deleteGlobalTemplate(name: string): boolean {
   return true;
 }
 
+// ─── Selected Models ─────────────────────────────────────────────────────────
+
+export function getSelectedVideoModelIds(): string[] | null {
+  return readJSON<string[]>(KEYS.selectedModels);
+}
+
+export function saveSelectedVideoModelIds(ids: string[]): void {
+  writeJSON(KEYS.selectedModels, ids);
+}
+
 // ─── Reset ────────────────────────────────────────────────────────────────────
 
 /**
@@ -297,6 +308,9 @@ export const videoStorageService = {
   listGlobalTemplates,
   updateGlobalTemplate,
   deleteGlobalTemplate,
+  // Selected models
+  getSelectedVideoModelIds,
+  saveSelectedVideoModelIds,
   // Reset
   reset: resetVideoStorage,
 };

@@ -36,6 +36,8 @@ export interface VideoHistoryEntry {
   /** ISO 8601 string set when pinned; cleared to undefined when unpinned. */
   pinnedAt?: string;
   audioUrl?: string;
+  /** Model ID that generated this clip (e.g. "Veo-3.1"). Optional for backward compat. */
+  model?: string;
 }
 
 // ─── Shot ─────────────────────────────────────────────────────────────────────
@@ -64,7 +66,7 @@ export interface Shot {
   video: ShotVideo;
   /** Whether to burn subtitles into this shot's clip. Inherits script.settings.subtitles on creation. */
   subtitles: boolean;
-  /** Clip duration in seconds. Must be one of VIDEO_DURATIONS. Default: VIDEO_DURATIONS[0] (8). */
+  /** Clip duration in seconds. Must be one of VIDEO_DURATIONS. Default: DEFAULT_VIDEO_DURATION (8). */
   duration: number;
 }
 
