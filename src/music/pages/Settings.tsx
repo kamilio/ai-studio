@@ -207,10 +207,10 @@ export default function Settings() {
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div className="rounded-lg border bg-card p-5 space-y-4">
-          <h2 className="text-base font-semibold">Music</h2>
+          <h2 className="text-base font-semibold">Poe API</h2>
           <div className="space-y-1.5">
             <label htmlFor="apiKey" className="text-sm font-medium">
-              POE API Key
+              Poe API Key
             </label>
             <input
               id="apiKey"
@@ -223,29 +223,14 @@ export default function Settings() {
             <p className="text-xs text-muted-foreground">
               Get your key at{" "}
               <a
-                href="https://poe.com/api_key"
+                href="https://poe.com/api/keys"
                 target="_blank"
                 rel="noreferrer"
                 className="underline underline-offset-2 hover:text-foreground"
               >
-                poe.com/api_key
+                https://poe.com/api/keys
               </a>
             </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <label htmlFor="numSongs" className="text-sm font-medium">
-              Songs to generate per request
-            </label>
-            <input
-              id="numSongs"
-              type="number"
-              min={1}
-              max={10}
-              value={numSongs}
-              onChange={(e) => setNumSongs(Number(e.target.value))}
-              className="w-24 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
           </div>
 
           {apiKey && (
@@ -274,6 +259,24 @@ export default function Settings() {
               ) : null}
             </div>
           )}
+        </div>
+
+        <div className="rounded-lg border bg-card p-5 space-y-4">
+          <h2 className="text-base font-semibold">Music</h2>
+          <div className="space-y-1.5">
+            <label htmlFor="numSongs" className="text-sm font-medium">
+              Songs to generate per request
+            </label>
+            <input
+              id="numSongs"
+              type="number"
+              min={1}
+              max={10}
+              value={numSongs}
+              onChange={(e) => setNumSongs(Number(e.target.value))}
+              className="w-24 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+          </div>
         </div>
 
         <div className="rounded-lg border bg-card p-5 space-y-4">
