@@ -36,6 +36,8 @@ export interface FullscreenImageViewerProps {
   initialItem: ImageItem;
   /** Called when the modal should close (ESC, backdrop click, or close button). */
   onClose: () => void;
+  /** Initial list mode. Defaults to "current". */
+  initialListMode?: ListMode;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -79,18 +81,19 @@ export function FullscreenImageViewer({
   generations,
   initialItem,
   onClose,
+  initialListMode = "current",
 }: FullscreenImageViewerProps) {
   // Active list mode: "all" shows every image in the session, "current" shows
   // only items from the most recent generation step.
-  const [listMode, setListMode] = useState<ListMode>("current");
+  const [listMode, setListMode] = useState<ListMode>(initialListMode);
 
   // Build the active list whenever mode, allItems, or generations changes.
   const activeList = buildList(listMode, allItems, generations);
 
   // Current display index within the active list.
-  // Initialise to the position of the clicked item in the "current" list.
+  // Initialise to the position of the clicked item in the initial list mode.
   const [currentIndex, setCurrentIndex] = useState<number>(() => {
-    const list = buildList("current", allItems, generations);
+    const list = buildList(initialListMode, allItems, generations);
     const idx = list.findIndex((item) => item.id === initialItem.id);
     return idx >= 0 ? idx : 0;
   });

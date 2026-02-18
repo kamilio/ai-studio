@@ -843,6 +843,7 @@ export default function SessionView() {
   // US-027: The ImageItem currently shown in the fullscreen viewer.
   // null means the viewer is closed.
   const [viewerItem, setViewerItem] = useState<ImageItem | null>(null);
+  const [viewerListMode, setViewerListMode] = useState<"all" | "current">("current");
 
   // US-028: Selected image models — allows multi-model generation. Default to first model.
   const [selectedModels, setSelectedModelsRaw] = useState<ImageModelDef[]>(() => {
@@ -904,6 +905,13 @@ export default function SessionView() {
 
   /** US-027: Opens the fullscreen viewer for the given image. */
   const handleOpenFullscreen = useCallback((item: ImageItem) => {
+    setViewerListMode("current");
+    setViewerItem(item);
+  }, []);
+
+  /** Opens the fullscreen viewer in "all" mode (used by thumbnail history). */
+  const handleOpenFullscreenAll = useCallback((item: ImageItem) => {
+    setViewerListMode("all");
     setViewerItem(item);
   }, []);
 
@@ -1329,7 +1337,7 @@ export default function SessionView() {
             aria-label="Image thumbnails"
             data-testid="thumbnail-panel"
           >
-            <ThumbnailPanel generations={data.generations} items={data.items} onOpenFullscreen={handleOpenFullscreen} />
+            <ThumbnailPanel generations={data.generations} items={data.items} onOpenFullscreen={handleOpenFullscreenAll} />
           </aside>
         </div>
 
@@ -1339,7 +1347,7 @@ export default function SessionView() {
           aria-label="Image thumbnails"
           data-testid="thumbnail-strip"
         >
-          <ThumbnailStrip generations={data.generations} items={data.items} onOpenFullscreen={handleOpenFullscreen} />
+          <ThumbnailStrip generations={data.generations} items={data.items} onOpenFullscreen={handleOpenFullscreenAll} />
         </div>
 
         {/* ── Bottom input bar (US-018) ──────────────────────────────── */}
@@ -1474,6 +1482,7 @@ export default function SessionView() {
         generations={data.generations}
         initialItem={viewerItem}
         onClose={handleCloseFullscreen}
+        initialListMode={viewerListMode}
       />
     )}
     </>
