@@ -82,6 +82,8 @@ test.describe("US-013: Empty states", () => {
     await seedFixture(page, noSongsFixture);
     await page.goto("/music/songs?messageId=fixture-msg-1a");
 
+    // Slow mock to give Playwright time to observe transient skeleton state.
+    await page.evaluate(() => { window.__mockLLMDelayMs = 1000; });
     await page.getByTestId("generate-songs-btn").click();
 
     // Slots (skeletons) should be visible, not the empty state
@@ -123,6 +125,12 @@ test.describe("US-013: Empty states", () => {
 // ─── Loading Skeletons ────────────────────────────────────────────────────────
 
 test.describe("US-013: Loading skeletons", () => {
+  test.beforeEach(async ({ page }) => {
+    // Slow mock to give Playwright time to observe transient loading states.
+    await page.goto("/");
+    await page.evaluate(() => { window.__mockLLMDelayMs = 1000; });
+  });
+
   test("SongsView: skeleton cards shown during generation (not just text)", async ({
     page,
   }) => {

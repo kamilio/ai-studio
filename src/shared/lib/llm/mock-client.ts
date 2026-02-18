@@ -45,6 +45,13 @@ declare global {
      * Clear by setting to undefined after the test.
      */
     __mockLLMAudioUrl?: string;
+    /**
+     * Testing hook: override the simulated latency (ms) of MockLLMClient.
+     * Set to a higher value in tests that assert transient loading states
+     * (skeletons, disabled inputs, loading indicators) to widen the observation
+     * window and prevent race conditions. Clear by setting to undefined.
+     */
+    __mockLLMDelayMs?: number;
   }
 }
 
@@ -59,7 +66,10 @@ export class MockLLMClient implements LLMClient {
   }
 
   private delay(): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, this.delayMs));
+    const ms =
+      (typeof window !== "undefined" && window.__mockLLMDelayMs) ||
+      this.delayMs;
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

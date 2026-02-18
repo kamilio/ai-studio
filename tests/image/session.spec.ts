@@ -197,6 +197,8 @@ test.describe("Session view — skeleton loading cards during generation (US-021
         "ai-studio:settings",
         JSON.stringify({ poeApiKey: "test-key", numSongs: 3 })
       );
+      // Slow mock to give Playwright time to observe transient skeleton state.
+      window.__mockLLMDelayMs = 1000;
     });
   });
 

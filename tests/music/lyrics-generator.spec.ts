@@ -169,6 +169,9 @@ test.describe("Lyrics Generator – chat integration (US-010)", () => {
   test("a loading indicator is shown while awaiting the response", async ({
     page,
   }) => {
+    // Slow mock to give Playwright time to observe transient loading state.
+    await page.evaluate(() => { window.__mockLLMDelayMs = 1000; });
+
     const input = page.getByTestId("chat-input");
     await input.fill("Make it more energetic");
 
@@ -208,6 +211,9 @@ test.describe("Lyrics Generator – chat integration (US-010)", () => {
   test("input is disabled and send button shows 'Sending…' while loading", async ({
     page,
   }) => {
+    // Slow mock to give Playwright time to observe transient disabled state.
+    await page.evaluate(() => { window.__mockLLMDelayMs = 1000; });
+
     const input = page.getByTestId("chat-input");
     const submitBtn = page.getByTestId("chat-submit");
 
