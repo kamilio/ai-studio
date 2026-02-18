@@ -3718,6 +3718,7 @@ function VideoScriptViewInner() {
           ? [
               "You are a creative assistant helping the user develop a video script.",
               "You have access to tools to directly modify the script — use them when the user asks to change the script.",
+              "When the user asks to modify a prompt, shot, or property without specifying which one, apply the change to the currently active shot.",
               "",
               `Script title: ${script.title}`,
               `Created: ${script.createdAt}`,
@@ -3750,6 +3751,11 @@ function VideoScriptViewInner() {
                 return lines.join("\n");
               }
               ),
+              "",
+              `Current mode: ${mode}`,
+              ...(mode === "shot" && script.shots[activeShotIndex]
+                ? [`Currently active shot: Shot ${activeShotIndex + 1} (id=${script.shots[activeShotIndex].id}, title="${script.shots[activeShotIndex].title}")`]
+                : []),
             ].join("\n")
           : "You are a creative assistant helping the user develop a video script.";
 
@@ -3809,7 +3815,7 @@ function VideoScriptViewInner() {
         }
       }
     },
-    [chatInput, chatLoading, chatMessages, script, refreshBalance]
+    [chatInput, chatLoading, chatMessages, script, refreshBalance, mode, activeShotIndex]
   );
 
   const handleChatKeyDown = useCallback(
