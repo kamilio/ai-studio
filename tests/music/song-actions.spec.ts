@@ -60,7 +60,7 @@ test.describe("Per-song actions (US-012)", () => {
 
     // Verify localStorage was updated
     const songs = await page.evaluate(() => {
-      const stored = localStorage.getItem("song-builder:songs");
+      const stored = localStorage.getItem("ai-studio:songs");
       if (!stored) return [] as Song[];
       return JSON.parse(stored) as Song[];
     });
@@ -93,7 +93,7 @@ test.describe("Per-song actions (US-012)", () => {
 
     // Verify localStorage was updated
     const songs = await page.evaluate(() => {
-      const stored = localStorage.getItem("song-builder:songs");
+      const stored = localStorage.getItem("ai-studio:songs");
       if (!stored) return [] as Song[];
       return JSON.parse(stored) as Song[];
     });
@@ -154,7 +154,7 @@ test.describe("Per-song actions (US-012)", () => {
 
     // Verify localStorage was updated
     const songs = await page.evaluate(() => {
-      const stored = localStorage.getItem("song-builder:songs");
+      const stored = localStorage.getItem("ai-studio:songs");
       if (!stored) return [] as Song[];
       return JSON.parse(stored) as Song[];
     });
@@ -174,7 +174,7 @@ test.describe("Per-song actions (US-012)", () => {
 
     // Song should still exist in localStorage, just with deleted: true
     const songs = await page.evaluate(() => {
-      const stored = localStorage.getItem("song-builder:songs");
+      const stored = localStorage.getItem("ai-studio:songs");
       if (!stored) return [] as Song[];
       return JSON.parse(stored) as Song[];
     });

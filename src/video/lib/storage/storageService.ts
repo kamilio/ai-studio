@@ -2,8 +2,8 @@
  * localStorage-backed storage service for video scripts and global templates.
  *
  * All data is stored under prefixed keys:
- *   song-builder:video-scripts       — Script[]
- *   song-builder:video-global-templates — GlobalTemplate[]
+ *   ai-studio:video-scripts       — Script[]
+ *   ai-studio:video-global-templates — GlobalTemplate[]
  *
  * Design mirrors src/image/lib/storage/storageService.ts:
  * - readJSON / writeJSON helpers with QuotaExceededError handling
@@ -23,8 +23,8 @@ import { log } from "@/music/lib/actionLog";
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 
 const KEYS = {
-  scripts: "song-builder:video-scripts",
-  globalTemplates: "song-builder:video-global-templates",
+  scripts: "ai-studio:video-scripts",
+  globalTemplates: "ai-studio:video-global-templates",
 } as const;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -269,10 +269,10 @@ export function deleteGlobalTemplate(name: string): boolean {
 // ─── Reset ────────────────────────────────────────────────────────────────────
 
 /**
- * Remove all song-builder:video-* localStorage keys.
+ * Remove all ai-studio:video-* localStorage keys.
  */
 export function resetVideoStorage(): void {
-  const prefix = "song-builder:video-";
+  const prefix = "ai-studio:video-";
   const keysToRemove: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);

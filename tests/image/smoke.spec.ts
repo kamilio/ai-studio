@@ -28,7 +28,7 @@ test.describe("Image workflow smoke test (US-031)", () => {
     // Seed an API key so the generation guard passes
     await page.evaluate(() => {
       localStorage.setItem(
-        "song-builder:settings",
+        "ai-studio:settings",
         JSON.stringify({ poeApiKey: "smoke-test-key", numSongs: 3 })
       );
     });

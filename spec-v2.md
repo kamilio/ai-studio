@@ -1,8 +1,8 @@
-# Song Builder — Spec v2
+# AI Studio — Spec v2
 
 ## Overview
 
-A client-side web app for generating song lyrics and audio. Built with React and TypeScript. All data is persisted in local storage — no backend required. Deployable to GitHub Pages (`https://kamilio.github.io/song-builder/`).
+A client-side web app for generating song lyrics and audio. Built with React and TypeScript. All data is persisted in local storage — no backend required. Deployable to GitHub Pages (`https://kamilio.github.io/ai-studio/`).
 
 The primary flow is linear: write lyrics → generate songs. Each lyrics entry is a self-contained session that owns its chat history and its generated songs.
 
@@ -431,8 +431,8 @@ Used occasionally to verify that the real Poe API and ElevenLabs integration wor
    ```js
    // Paste this into browser_evaluate or run via MCP browser_run_code.
    // Read the key from your .env beforehand and substitute it below.
-   const settings = JSON.parse(localStorage.getItem('song-builder:settings') || '{}');
-   localStorage.setItem('song-builder:settings', JSON.stringify({
+   const settings = JSON.parse(localStorage.getItem('ai-studio:settings') || '{}');
+   localStorage.setItem('ai-studio:settings', JSON.stringify({
      ...settings,
      poeApiKey: 'YOUR_KEY_HERE',
      numSongs: settings.numSongs ?? 3,

@@ -110,7 +110,7 @@ test.describe("Pinned Songs page (US-013)", () => {
 
     // Verify localStorage was updated
     const songs = await page.evaluate(() => {
-      const stored = localStorage.getItem("song-builder:songs");
+      const stored = localStorage.getItem("ai-studio:songs");
       if (!stored) return [] as Song[];
       return JSON.parse(stored) as Song[];
     });

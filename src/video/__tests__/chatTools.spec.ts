@@ -58,7 +58,7 @@ async function seedChatScript(
     localStorage.clear();
 
     // Seed POE API key so ApiKeyGuard doesn't block the editor.
-    const settingsKey = "song-builder:settings";
+    const settingsKey = "ai-studio:settings";
     localStorage.setItem(
       settingsKey,
       JSON.stringify({ poeApiKey: "test-poe-key", numSongs: 3 })
@@ -97,7 +97,7 @@ async function seedChatScript(
     };
 
     localStorage.setItem(
-      "song-builder:video-scripts",
+      "ai-studio:video-scripts",
       JSON.stringify([script])
     );
 
@@ -202,7 +202,7 @@ test.describe("US-084: AI chat tool-use UI — Playwright scenarios", () => {
     // is the authoritative check that the tool call applied correctly.
     const updatedPrompt = await page.evaluate(
       ({ sid, shotId }: { sid: string; shotId: string }) => {
-        const raw = localStorage.getItem("song-builder:video-scripts");
+        const raw = localStorage.getItem("ai-studio:video-scripts");
         if (!raw) return null;
         const scripts = JSON.parse(raw) as Array<{
           id: string;
@@ -254,7 +254,7 @@ test.describe("US-084: AI chat tool-use UI — Playwright scenarios", () => {
 
     // Verify script settings were updated in storage by inspecting localStorage.
     const settings = await page.evaluate((sid: string) => {
-      const raw = localStorage.getItem("song-builder:video-scripts");
+      const raw = localStorage.getItem("ai-studio:video-scripts");
       if (!raw) return null;
       const scripts = JSON.parse(raw) as Array<{
         id: string;
@@ -284,7 +284,7 @@ test.describe("US-084: AI chat tool-use UI — Playwright scenarios", () => {
 
     // Snapshot original script settings before sending the message.
     const settingsBefore = await page.evaluate((sid: string) => {
-      const raw = localStorage.getItem("song-builder:video-scripts");
+      const raw = localStorage.getItem("ai-studio:video-scripts");
       if (!raw) return null;
       const scripts = JSON.parse(raw) as Array<{
         id: string;
@@ -318,7 +318,7 @@ test.describe("US-084: AI chat tool-use UI — Playwright scenarios", () => {
 
     // Script state must be unchanged — shot count and settings identical.
     const settingsAfter = await page.evaluate((sid: string) => {
-      const raw = localStorage.getItem("song-builder:video-scripts");
+      const raw = localStorage.getItem("ai-studio:video-scripts");
       if (!raw) return null;
       const scripts = JSON.parse(raw) as Array<{
         id: string;

@@ -91,7 +91,7 @@ async function seedTwoScripts(page: Page): Promise<void> {
     (ids: { s1: string; s2: string; t1: string; t2: string }) => {
       window.videoStorageService.reset();
       localStorage.setItem(
-        "song-builder:video-scripts",
+        "ai-studio:video-scripts",
         JSON.stringify([
           {
             id: ids.s1,
@@ -163,7 +163,7 @@ async function seedEditorScript(page: Page): Promise<string> {
     }) => {
       window.videoStorageService.reset();
       localStorage.setItem(
-        "song-builder:video-scripts",
+        "ai-studio:video-scripts",
         JSON.stringify([
           {
             id: ids.scriptId,
@@ -250,7 +250,7 @@ async function seedGlobalTemplates(page: Page): Promise<void> {
   await page.evaluate(() => {
     window.videoStorageService.reset();
     localStorage.setItem(
-      "song-builder:video-global-templates",
+      "ai-studio:video-global-templates",
       JSON.stringify([
         {
           name: "Maya",
@@ -287,7 +287,7 @@ async function seedThreeVideos(page: Page): Promise<void> {
     }) => {
       window.videoStorageService.reset();
       localStorage.setItem(
-        "song-builder:video-scripts",
+        "ai-studio:video-scripts",
         JSON.stringify([
           {
             id: ids.s1,
@@ -367,7 +367,7 @@ async function seedPinnedVideo(page: Page): Promise<void> {
     }) => {
       window.videoStorageService.reset();
       localStorage.setItem(
-        "song-builder:video-scripts",
+        "ai-studio:video-scripts",
         JSON.stringify([
           {
             id: ids.scriptId,

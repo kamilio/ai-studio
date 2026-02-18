@@ -111,7 +111,7 @@ test.describe("US-005: Inline-editable fields", () => {
 
     // Verify storage was updated
     const messages = await page.evaluate(() => {
-      const stored = localStorage.getItem("song-builder:messages");
+      const stored = localStorage.getItem("ai-studio:messages");
       return stored
         ? (JSON.parse(stored) as Array<{ id: string; title?: string }>)
         : [];
@@ -137,7 +137,7 @@ test.describe("US-005: Inline-editable fields", () => {
 
     // Verify storage
     const messages = await page.evaluate(() => {
-      const stored = localStorage.getItem("song-builder:messages");
+      const stored = localStorage.getItem("ai-studio:messages");
       return stored
         ? (JSON.parse(stored) as Array<{ id: string; title?: string }>)
         : [];
@@ -162,7 +162,7 @@ test.describe("US-005: Inline-editable fields", () => {
 
     // Verify storage has integer 240
     const messages = await page.evaluate(() => {
-      const stored = localStorage.getItem("song-builder:messages");
+      const stored = localStorage.getItem("ai-studio:messages");
       return stored
         ? (JSON.parse(stored) as Array<{ id: string; duration?: number }>)
         : [];
@@ -212,7 +212,7 @@ test.describe("US-005: Inline-editable fields", () => {
     );
 
     const messages = await page.evaluate(() => {
-      const stored = localStorage.getItem("song-builder:messages");
+      const stored = localStorage.getItem("ai-studio:messages");
       return stored
         ? (JSON.parse(stored) as Array<{ id: string; commentary?: string }>)
         : [];

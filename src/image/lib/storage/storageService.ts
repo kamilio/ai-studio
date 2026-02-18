@@ -8,10 +8,10 @@ import type {
 import { emitQuotaExceeded } from "@/shared/lib/storageQuotaEvents";
 
 const KEYS = {
-  sessions: "song-builder:image-sessions",
-  generations: "song-builder:image-generations",
-  items: "song-builder:image-items",
-  settings: "song-builder:image-settings",
+  sessions: "ai-studio:image-sessions",
+  generations: "ai-studio:image-generations",
+  items: "ai-studio:image-items",
+  settings: "ai-studio:image-settings",
 } as const;
 
 function readJSON<T>(key: string): T | null {
@@ -169,10 +169,10 @@ export function saveImageSettings(settings: ImageSettings): void {
 // ─── Reset ────────────────────────────────────────────────────────────────────
 
 /**
- * Remove all song-builder:image-* localStorage keys.
+ * Remove all ai-studio:image-* localStorage keys.
  */
 export function resetImageStorage(): void {
-  const prefix = "song-builder:image-";
+  const prefix = "ai-studio:image-";
   const keysToRemove: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);

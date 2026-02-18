@@ -44,7 +44,7 @@ async function seedScript(
   return page.evaluate(() => {
     // Only clear the scripts storage key, NOT global templates.
     // This preserves any global templates created earlier in the test.
-    localStorage.removeItem("song-builder:video-scripts");
+    localStorage.removeItem("ai-studio:video-scripts");
 
     const now = new Date().toISOString();
     const t = Date.now();
@@ -78,7 +78,7 @@ async function seedScript(
 
     // Write directly into localStorage under the video-scripts key
     localStorage.setItem(
-      "song-builder:video-scripts",
+      "ai-studio:video-scripts",
       JSON.stringify([script])
     );
 

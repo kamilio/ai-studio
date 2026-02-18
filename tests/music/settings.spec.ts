@@ -54,7 +54,7 @@ test.describe("Settings page", () => {
     await page.getByRole("button", { name: "Save Settings" }).click();
 
     const stored = await page.evaluate(() => {
-      const raw = localStorage.getItem("song-builder:settings");
+      const raw = localStorage.getItem("ai-studio:settings");
       return raw ? JSON.parse(raw) : null;
     });
     expect(stored).not.toBeNull();

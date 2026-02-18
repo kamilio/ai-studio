@@ -157,7 +157,7 @@ test.describe("Song Generator page", () => {
 
     // Verify songs are persisted in localStorage via storageService
     const songsInStorage = await page.evaluate(() => {
-      const stored = localStorage.getItem("song-builder:songs");
+      const stored = localStorage.getItem("ai-studio:songs");
       if (!stored) return [];
       return JSON.parse(stored) as Array<{
         id: string;

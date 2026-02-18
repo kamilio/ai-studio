@@ -15,7 +15,7 @@ import {
   resetImageStorage,
 } from "@/image/lib/storage/storageService";
 
-const MODELS_CACHE_KEY = "song-builder:poe-models";
+const MODELS_CACHE_KEY = "ai-studio:poe-models";
 
 interface ModelsCache {
   key: string;
@@ -264,7 +264,7 @@ export default function Settings() {
                   onChange={(e) => setChatModel(e.target.value)}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
-                  <option value="">Default (claude-sonnet-4.5)</option>
+                  <option value="">Default (Claude-Sonnet-4.5)</option>
                   {chatModels.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.label}

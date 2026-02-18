@@ -145,7 +145,7 @@ test.describe("US-007: Checkpoint navigation and banner", () => {
     const newAssistantId = newUrl.split("/music/lyrics/")[1];
 
     const messages = await page.evaluate(() => {
-      const stored = localStorage.getItem("song-builder:messages");
+      const stored = localStorage.getItem("ai-studio:messages");
       return stored
         ? (JSON.parse(stored) as Array<{
             id: string;

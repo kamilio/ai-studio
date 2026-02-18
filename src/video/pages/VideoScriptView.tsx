@@ -3659,7 +3659,7 @@ function VideoScriptViewInner() {
             { role: "user" as const, content: trimmed },
           ],
           CHAT_TOOLS,
-          "claude-sonnet-4-5-20250929"
+          "Claude-Sonnet-4.5"
         );
 
         if (isMounted.current && script) {

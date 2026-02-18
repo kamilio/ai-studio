@@ -68,7 +68,7 @@ async function seedScript(
     };
 
     localStorage.setItem(
-      "song-builder:video-scripts",
+      "ai-studio:video-scripts",
       JSON.stringify([script])
     );
 

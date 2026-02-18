@@ -84,7 +84,7 @@ async function seedScript(
 
     // Write directly into localStorage under the video-scripts key
     localStorage.setItem(
-      "song-builder:video-scripts",
+      "ai-studio:video-scripts",
       JSON.stringify([script])
     );
 

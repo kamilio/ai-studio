@@ -16,7 +16,7 @@
 
 import { useCallback, useState } from "react";
 
-const STORAGE_KEY = "song-builder:poe-balance";
+const STORAGE_KEY = "ai-studio:poe-balance";
 
 /** Format a numeric balance into a compact string (e.g. 7234 → "7K"). */
 export function formatBalance(value: number): string {

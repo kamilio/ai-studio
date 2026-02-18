@@ -1,8 +1,8 @@
-# Song Builder — Spec
+# AI Studio — Spec
 
 ## Overview
 
-A client-side web app for generating song lyrics and audio. Built with React and TypeScript. All data is persisted in local storage — no backend required. Deployable to GitHub Pages (`https://kamilio.github.io/song-builder/`).
+A client-side web app for generating song lyrics and audio. Built with React and TypeScript. All data is persisted in local storage — no backend required. Deployable to GitHub Pages (`https://kamilio.github.io/ai-studio/`).
 
 ---
 

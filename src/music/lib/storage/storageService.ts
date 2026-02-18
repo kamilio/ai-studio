@@ -2,9 +2,9 @@ import type { Settings, Message, Song, StorageExport } from "./types";
 import { emitQuotaExceeded } from "@/shared/lib/storageQuotaEvents";
 
 const KEYS = {
-  settings: "song-builder:settings",
-  messages: "song-builder:messages",
-  songs: "song-builder:songs",
+  settings: "ai-studio:settings",
+  messages: "ai-studio:messages",
+  songs: "ai-studio:songs",
 } as const;
 
 function readJSON<T>(key: string): T | null {

@@ -1,7 +1,7 @@
 - song - lyrics - the chat input should be sticky
 - the main landing page is weird - we need to rebrand to "Studio", also the left button is black and right is white, they should be equal
 - clicking the logo navigates to the master landing page (root /) from anywhere in the app
-- settings are Music -> POE API Key, it's a global for everything, also it says song builder, rebrand to "Studio"
+- settings are Music -> POE API Key, it's a global for everything, also it says ai studio, rebrand to "Studio"
 - the session card e.g. on <http://localhost:5174/image/sessions> should show mini preview of images, so they barely fit into the card, show as many as fit, newest first; also show the number of generated images (and number of pinned)
 - session list - add sort by (newest first, oldest first, most images, most pinned)
 - the loading placeholders should show a per-image spinner (images) and per-song spinner (lyrics) with seconds elapsed; disappears immediately when done
@@ -18,7 +18,7 @@
 - images - multimodel, ability to select multiple models, results will be rendered inside the main pane with top right badge identifying model, 3 per model by default (configurable in settings, free input, no min/max)
   - selector - use shadcn multi select component, and make sure it looks good
 - songs - when in lyrics mode, show the count of already generated songs; clicking navigates to the songs list filtered to that lyric; only shown if songs exist, otherwise hidden
-- song builder - pinned songs view has a pinned filter on by default, add a "clear filter" button to show all songs
+- ai studio - pinned songs view has a pinned filter on by default, add a "clear filter" button to show all songs
 - report bug should be only visible in development mode (figure out appropriate check e.g. NODE_ENV or similar)
 - add modal for api key, whenever requested, it should open blocking modal, so we don't interrupt the whole flow, verify api key via GET <https://api.poe.com/usage/current_balance>
   - error states should be handled gracefully: invalid key, network error, expired key — show clear inline feedback in the modal (not a toast), let the user correct and retry without dismissing; figure out what the API returns for each case and tailor the message (e.g. "Invalid API key — double-check you copied the full key")

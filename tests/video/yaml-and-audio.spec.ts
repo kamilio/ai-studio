@@ -81,7 +81,7 @@ async function seedExportScript(
 
       // Seed global template
       localStorage.setItem(
-        "song-builder:video-global-templates",
+        "ai-studio:video-global-templates",
         JSON.stringify([
           {
             name: args.globalVarName,
@@ -141,7 +141,7 @@ async function seedExportScript(
       };
 
       localStorage.setItem(
-        "song-builder:video-scripts",
+        "ai-studio:video-scripts",
         JSON.stringify([script])
       );
 

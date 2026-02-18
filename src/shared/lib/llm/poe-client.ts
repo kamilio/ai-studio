@@ -32,7 +32,7 @@ export class PoeLLMClient implements LLMClient {
 
   async chat(messages: ChatMessage[], model?: string): Promise<string> {
     const response = await this.client.chat.completions.create({
-      model: model ?? "claude-sonnet-4.5",
+      model: model ?? "Claude-Sonnet-4.5",
       messages,
     });
 
@@ -43,7 +43,7 @@ export class PoeLLMClient implements LLMClient {
 
   async generateSong(prompt: string, musicLengthMs?: number): Promise<string> {
     const response = await this.client.chat.completions.create({
-      model: "elevenlabs-music",
+      model: "ElevenLabs-Music",
       messages: [{ role: "user", content: prompt }],
       // @ts-expect-error extra_body is a Poe-specific extension not in the OpenAI types
       extra_body: { music_length_ms: musicLengthMs ?? 150000 },
@@ -57,7 +57,7 @@ export class PoeLLMClient implements LLMClient {
   async generateImage(prompt: string, count = 3, model?: string, extraBody?: Record<string, unknown>, remixImageBase64?: string): Promise<string[]> {
     const makeRequest = async (): Promise<string> => {
       const response = await this.client.chat.completions.create({
-        model: model ?? "nano-banana",
+        model: model ?? "Nano-Banana-Pro",
         messages: [{ role: "user", content: prompt }],
         // @ts-expect-error extra_body is a Poe-specific extension not in the OpenAI types
         extra_body: {
@@ -66,7 +66,7 @@ export class PoeLLMClient implements LLMClient {
         },
       });
       const content = response.choices[0]?.message?.content;
-      if (!content) throw new Error("nano-banana returned an empty response");
+      if (!content) throw new Error("Image model returned an empty response");
 
       // The model may return markdown: "![image](url)\n\nurl"
       // Extract the raw URL: prefer the last non-empty line (the standalone URL),
@@ -83,31 +83,31 @@ export class PoeLLMClient implements LLMClient {
 
   async generateVideo(prompt: string, duration?: number): Promise<string> {
     const response = await this.client.chat.completions.create({
-      model: "veo-3.1",
+      model: "Veo-3.1",
       messages: [{ role: "user", content: prompt }],
       // @ts-expect-error extra_body is a Poe-specific extension not in the OpenAI types
       extra_body: { size: "1792x1024", duration: String(duration ?? 8) },
     });
 
     const videoUrl = response.choices[0]?.message?.content;
-    if (!videoUrl) throw new Error("veo-3.1 returned an empty response");
+    if (!videoUrl) throw new Error("Veo-3.1 returned an empty response");
     return videoUrl;
   }
 
   async generateAudio(text: string): Promise<string> {
     const response = await this.client.chat.completions.create({
-      model: "elevenlabs-v3",
+      model: "ElevenLabs-v3",
       messages: [{ role: "user", content: text }],
     });
 
     const audioUrl = response.choices[0]?.message?.content;
-    if (!audioUrl) throw new Error("elevenlabs-v3 returned an empty response");
+    if (!audioUrl) throw new Error("ElevenLabs-v3 returned an empty response");
     return audioUrl;
   }
 
   async chatWithTools(messages: ChatMessage[], tools: ToolDefinition[], model?: string): Promise<ChatWithToolsResponse> {
     const response = await this.client.chat.completions.create({
-      model: model ?? "claude-sonnet-4.5",
+      model: model ?? "Claude-Sonnet-4.5",
       messages,
       tools,
     });

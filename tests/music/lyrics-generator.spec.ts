@@ -330,7 +330,7 @@ test.describe("Lyrics Generator – US-004: tree traversal and ancestor path", (
     // Verify storage: new assistant message has a user message parent,
     // and that user message has fixture-msg-1a as its parent.
     const messages = await page.evaluate(() => {
-      const stored = localStorage.getItem("song-builder:messages");
+      const stored = localStorage.getItem("ai-studio:messages");
       return stored ? (JSON.parse(stored) as Array<{ id: string; role: string; parentId: string | null }>) : [];
     });
 

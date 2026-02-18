@@ -53,7 +53,7 @@ async function seedScript(page: import("@playwright/test").Page): Promise<Seeded
     };
 
     localStorage.setItem(
-      "song-builder:video-scripts",
+      "ai-studio:video-scripts",
       JSON.stringify([script])
     );
 

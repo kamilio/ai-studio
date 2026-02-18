@@ -135,7 +135,7 @@ test.describe("Session view — prompt persists after generation (US-018)", () =
     // Also seed music settings with an API key so the guard doesn't block
     await page.evaluate(() => {
       localStorage.setItem(
-        "song-builder:settings",
+        "ai-studio:settings",
         JSON.stringify({ poeApiKey: "test-key", numSongs: 3 })
       );
     });
@@ -165,7 +165,7 @@ test.describe("Session view — prompt persists after generation (US-018)", () =
     await seedImageFixture(page, imageBaseFixture);
     await page.evaluate(() => {
       localStorage.setItem(
-        "song-builder:settings",
+        "ai-studio:settings",
         JSON.stringify({ poeApiKey: "test-key", numSongs: 3 })
       );
     });
@@ -195,7 +195,7 @@ test.describe("Session view — skeleton loading cards during generation (US-021
     // Seed music settings with API key so the guard passes
     await page.evaluate(() => {
       localStorage.setItem(
-        "song-builder:settings",
+        "ai-studio:settings",
         JSON.stringify({ poeApiKey: "test-key", numSongs: 3 })
       );
     });
@@ -313,7 +313,7 @@ test.describe("Session view — generation flow integration", () => {
     await seedImageFixture(page, imageBaseFixture);
     await page.evaluate(() => {
       localStorage.setItem(
-        "song-builder:settings",
+        "ai-studio:settings",
         JSON.stringify({ poeApiKey: "test-key", numSongs: 3 })
       );
     });
@@ -339,7 +339,7 @@ test.describe("Session view — generation flow integration", () => {
     await seedImageFixture(page, imageBaseFixture);
     await page.evaluate(() => {
       localStorage.setItem(
-        "song-builder:settings",
+        "ai-studio:settings",
         JSON.stringify({ poeApiKey: "test-key", numSongs: 3 })
       );
     });
@@ -365,7 +365,7 @@ test.describe("Session view — retry button on failed image slots (US-007)", ()
     // Seed music settings with API key so the guard passes
     await page.evaluate(() => {
       localStorage.setItem(
-        "song-builder:settings",
+        "ai-studio:settings",
         JSON.stringify({ poeApiKey: "test-key", numSongs: 3 })
       );
     });

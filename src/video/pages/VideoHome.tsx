@@ -355,7 +355,7 @@ export default function VideoHome() {
             content: `Write a video script for: ${trimmed}`,
           },
         ],
-        "claude-sonnet-4-5-20250929",
+        "Claude-Sonnet-4.5",
       );
 
       // Refresh balance after generation (fire-and-forget)
