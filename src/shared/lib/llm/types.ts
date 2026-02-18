@@ -72,11 +72,13 @@ export interface LLMClient {
   generateImage(prompt: string, count?: number, model?: string, extraBody?: Record<string, unknown>, remixImageBase64?: string): Promise<string[]>;
 
   /**
-   * Submit a video prompt to the veo-3.1 model and return a publicly-accessible video URL.
+   * Submit a video prompt and return a publicly-accessible video URL.
    * @param prompt - text description of the desired video shot
-   * @param duration - optional clip duration in seconds; defaults to VIDEO_DURATIONS[0]
+   * @param duration - optional clip duration in seconds; defaults to DEFAULT_VIDEO_DURATION (8)
+   * @param model - optional model id; falls back to Veo-3.1 when omitted
+   * @param extraBody - optional extra fields forwarded verbatim to the API request body
    */
-  generateVideo(prompt: string, duration?: number): Promise<string>;
+  generateVideo(prompt: string, duration?: number, model?: string, extraBody?: Record<string, unknown>): Promise<string>;
 
   /**
    * Submit narration text to the elevenlabs-v3 model and return a publicly-accessible audio URL.

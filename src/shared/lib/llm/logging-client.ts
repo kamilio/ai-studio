@@ -81,18 +81,18 @@ export class LoggingLLMClient implements LLMClient {
     }
   }
 
-  async generateVideo(prompt: string, duration?: number): Promise<string> {
+  async generateVideo(prompt: string, duration?: number, model?: string, extraBody?: Record<string, unknown>): Promise<string> {
     log({
       category: "llm:request",
       action: "llm:video:start",
-      data: { prompt, duration },
+      data: { prompt, duration, model, extraBody },
     });
     try {
-      const result = await this.inner.generateVideo(prompt, duration);
+      const result = await this.inner.generateVideo(prompt, duration, model, extraBody);
       log({
         category: "llm:response",
         action: "llm:video:complete",
-        data: { prompt, duration, result },
+        data: { prompt, duration, model, result },
       });
       return result;
     } catch (err) {
