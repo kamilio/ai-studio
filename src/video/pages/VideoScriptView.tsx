@@ -105,19 +105,22 @@ import {
   ChevronRight,
   Sparkles,
   Pin,
+  PinOff,
   Clock,
-  Info,
   Wrench,
   AlertTriangle,
   ChevronDown,
 } from "lucide-react";
+import { VideoPlayer } from "@/video/components/VideoPlayer";
 import { ErrorBoundary } from "@/shared/components/ErrorBoundary";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { Button } from "@/shared/components/ui/button";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { getSettings } from "@/music/lib/storage";
-import { videoStorageService } from "@/video/lib/storage/storageService";
-import { VIDEO_DURATIONS } from "@/video/lib/config";
+import { videoStorageService, getSelectedVideoModelIds, saveSelectedVideoModelIds } from "@/video/lib/storage/storageService";
+import { VIDEO_DURATIONS, DEFAULT_VIDEO_DURATION } from "@/video/lib/config";
+import { VIDEO_MODELS, closestDuration, type VideoModelDef } from "@/video/lib/videoModels";
+import { ModelMultiSelect } from "@/image/components/ModelMultiSelect";
 import { log } from "@/music/lib/actionLog";
 import type {
   Script,
@@ -128,6 +131,8 @@ import type {
   GlobalTemplate,
 } from "@/video/lib/storage/types";
 import { createLLMClient } from "@/shared/lib/llm/factory";
+import { useApiKeyGuard } from "@/shared/hooks/useApiKeyGuard";
+import { ApiKeyMissingModal } from "@/shared/components/ApiKeyMissingModal";
 import { usePoeBalanceContext } from "@/shared/context/PoeBalanceContext";
 import { dump as yamlDump } from "js-yaml";
 import TemplateAutocomplete from "@/video/components/TemplateAutocomplete";
@@ -158,8 +163,8 @@ interface ChatMessage {
  * appears in shot.video.history.
  */
 type GenerationSlotState =
-  | { status: "pending"; slotId: string }
-  | { status: "error"; slotId: string; errorMessage: string; prompt: string };
+  | { status: "pending"; slotId: string; model?: string }
+  | { status: "error"; slotId: string; errorMessage: string; prompt: string; model?: string };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -695,6 +700,7 @@ interface ShotCardProps {
   onUpdate: (updatedScript: Script) => void;
   onDelete: (shotId: string) => void;
   onSwitchToShotMode: (shotIndex: number) => void;
+  guardAction: (action?: () => void) => boolean;
 }
 
 function ShotCard({
@@ -704,6 +710,7 @@ function ShotCard({
   onUpdate,
   onDelete,
   onSwitchToShotMode,
+  guardAction,
 }: ShotCardProps) {
   // ── Sortable DnD ────────────────────────────────────────────────────────────
   const {
@@ -1297,7 +1304,58 @@ function ShotCard({
               <span aria-hidden="true">▾</span>
             </button>
             {menuOpen && (
-              <div className="absolute right-0 top-full mt-1 z-20 w-32 rounded-md border border-border bg-background shadow-md py-1">
+              <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-md border border-border bg-background shadow-md py-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleNarrationToggle();
+                  }}
+                  className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
+                  data-testid={`shot-narration-menu-${shot.id}`}
+                >
+                  Narration
+                  <span
+                    role="switch"
+                    aria-checked={shot.narration.enabled}
+                    className={[
+                      "relative inline-flex h-4 w-7 shrink-0 rounded-full border-2 border-transparent transition-colors",
+                      shot.narration.enabled ? "bg-primary" : "bg-input",
+                    ].join(" ")}
+                  >
+                    <span
+                      className={[
+                        "pointer-events-none inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform",
+                        shot.narration.enabled ? "translate-x-3" : "translate-x-0",
+                      ].join(" ")}
+                    />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleShotSubtitlesToggle();
+                  }}
+                  className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
+                  data-testid={`shot-subtitles-menu-${shot.id}`}
+                >
+                  Subtitles
+                  <span
+                    role="switch"
+                    aria-checked={shot.subtitles}
+                    className={[
+                      "relative inline-flex h-4 w-7 shrink-0 rounded-full border-2 border-transparent transition-colors",
+                      shot.subtitles ? "bg-primary" : "bg-input",
+                    ].join(" ")}
+                  >
+                    <span
+                      className={[
+                        "pointer-events-none inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform",
+                        shot.subtitles ? "translate-x-3" : "translate-x-0",
+                      ].join(" ")}
+                    />
+                  </span>
+                </button>
+                <div className="my-1 border-t border-border" />
                 <button
                   type="button"
                   onClick={() => {
@@ -1396,40 +1454,9 @@ function ShotCard({
             </div>
           )}
 
-          {/* Narration section */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={shot.narration.enabled}
-                onClick={handleNarrationToggle}
-                className={[
-                  "relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1",
-                  shot.narration.enabled ? "bg-primary" : "bg-input",
-                ].join(" ")}
-                data-testid={`narration-toggle-${shot.id}`}
-                aria-label="Toggle narration"
-              >
-                <span
-                  className={[
-                    "pointer-events-none inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform",
-                    shot.narration.enabled ? "translate-x-3" : "translate-x-0",
-                  ].join(" ")}
-                />
-              </button>
-              <span className="text-xs font-medium text-muted-foreground">
-                Narration
-              </span>
-              <Info
-                className="h-3 w-3 text-muted-foreground cursor-help"
-                data-testid="narration-info-icon"
-                title="Narration audio will replace the video's native audio track."
-              />
-            </div>
-
-            {shot.narration.enabled && (
-              <div className="space-y-2 pl-0">
+          {/* Narration expanded controls (toggle lives in overflow menu) */}
+          {shot.narration.enabled && (
+            <div className="space-y-2">
                 {/* Narration textarea */}
                 <Textarea
                   value={narrationText}
@@ -1476,7 +1503,7 @@ function ShotCard({
                   {shot.narration.audioSource === "elevenlabs" && (
                     <button
                       type="button"
-                      onClick={() => void handleGenerateAudio()}
+                      onClick={() => guardAction(() => void handleGenerateAudio())}
                       disabled={isGeneratingAudio || !shot.narration.text.trim()}
                       className={[
                         "ml-auto flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium border border-border transition-colors",
@@ -1511,7 +1538,7 @@ function ShotCard({
                     {shot.narration.audioSource === "elevenlabs" && (
                       <button
                         type="button"
-                        onClick={() => void handleGenerateAudio()}
+                        onClick={() => guardAction(() => void handleGenerateAudio())}
                         disabled={isGeneratingAudio || !shot.narration.text.trim()}
                         className="shrink-0 font-medium underline hover:no-underline disabled:opacity-50"
                         data-testid={`audio-regenerate-btn-${shot.id}`}
@@ -1530,35 +1557,8 @@ function ShotCard({
                     dataTestIdPrefix={`audio-${shot.id}`}
                   />
                 )}
-              </div>
-            )}
-          </div>
-
-          {/* Subtitles toggle (Write mode card indicator) */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={shot.subtitles}
-              onClick={handleShotSubtitlesToggle}
-              className={[
-                "relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1",
-                shot.subtitles ? "bg-primary" : "bg-input",
-              ].join(" ")}
-              data-testid={`shot-subtitles-toggle-${shot.id}`}
-              aria-label="Toggle subtitles"
-            >
-              <span
-                className={[
-                  "pointer-events-none inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform",
-                  shot.subtitles ? "translate-x-3" : "translate-x-0",
-                ].join(" ")}
-              />
-            </button>
-            <span className="text-xs font-medium text-muted-foreground">
-              Subtitles
-            </span>
-          </div>
+            </div>
+          )}
 
           {/* Duration badge */}
           <div className="flex items-center gap-1.5">
@@ -1858,6 +1858,7 @@ interface ShotModeViewProps {
   onUpdate: (updatedScript: Script) => void;
   onNavigate: (newIndex: number) => void;
   isMountedRef: MutableRefObject<boolean>;
+  guardAction: (action?: () => void) => boolean;
 }
 
 /**
@@ -1877,6 +1878,7 @@ function ShotModeView({
   onUpdate,
   onNavigate,
   isMountedRef,
+  guardAction,
 }: ShotModeViewProps) {
   const totalShots = script.shots.length;
   const { refreshBalance } = usePoeBalanceContext();
@@ -1884,6 +1886,21 @@ function ShotModeView({
   // ── Narration local state ──────────────────────────────────────────────────
   const [narrationText, setNarrationText] = useState(shot.narration.text);
   const [generateCount, setGenerateCount] = useState(1);
+  const [selectedVideoModels, setSelectedVideoModelsRaw] = useState<VideoModelDef[]>(() => {
+    const savedIds = getSelectedVideoModelIds();
+    if (savedIds && savedIds.length > 0) {
+      const resolved = savedIds
+        .map((id) => VIDEO_MODELS.find((m) => m.id === id))
+        .filter((m): m is VideoModelDef => m != null);
+      if (resolved.length > 0) return resolved;
+    }
+    return [VIDEO_MODELS[0]];
+  });
+
+  const setSelectedVideoModels = useCallback((models: VideoModelDef[]) => {
+    setSelectedVideoModelsRaw(models);
+    saveSelectedVideoModelIds(models.map((m) => m.id));
+  }, []);
 
   // ── Audio generation state ─────────────────────────────────────────────────
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
@@ -1896,6 +1913,10 @@ function ShotModeView({
   // ── Confirm delete for history entries ────────────────────────────────────
   const [confirmDeleteIndex, setConfirmDeleteIndex] = useState<number | null>(null);
 
+  // ── Overflow menu state ─────────────────────────────────────────────────
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
   // ── Autocomplete state ────────────────────────────────────────────────────
   const [autocompleteOpen, setAutocompleteOpen] = useState(false);
   const [autocompleteQuery, setAutocompleteQuery] = useState("");
@@ -1906,6 +1927,19 @@ function ShotModeView({
     setNarrationText(shot.narration.text);
     setAudioError(null);
   }, [shot.id, shot.narration.text]);
+
+  // Close overflow menu on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    if (menuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [menuOpen]);
 
   // ── Tiptap editor ──────────────────────────────────────────────────────────
   const editor = useEditor({
@@ -2449,11 +2483,16 @@ function ShotModeView({
       return;
     }
 
-    // Build initial pending slots
-    const initialSlots: GenerationSlotState[] = Array.from(
-      { length: generateCount },
-      () => ({ status: "pending" as const, slotId: generateId() })
-    );
+    // Build initial pending slots — one per (model × count) combination
+    const initialSlots: (GenerationSlotState & { _model: VideoModelDef })[] =
+      selectedVideoModels.flatMap((model) =>
+        Array.from({ length: generateCount }, () => ({
+          status: "pending" as const,
+          slotId: generateId(),
+          model: model.id,
+          _model: model,
+        }))
+      );
 
     if (isMountedRef.current) {
       setIsGenerating(true);
@@ -2461,7 +2500,12 @@ function ShotModeView({
       log({
         category: "user:action",
         action: "video:generate:start",
-        data: { scriptId: script.id, shotId: shot.id, count: generateCount },
+        data: {
+          scriptId: script.id,
+          shotId: shot.id,
+          count: generateCount,
+          models: selectedVideoModels.map((m) => m.id),
+        },
       });
     }
 
@@ -2473,7 +2517,13 @@ function ShotModeView({
     // Run all slots in parallel
     const slotPromises = initialSlots.map(async (slot) => {
       try {
-        const url = await client.generateVideo(promptText, shotDuration);
+        const modelDuration = closestDuration(shotDuration, slot._model.durations);
+        const url = await client.generateVideo(
+          promptText,
+          modelDuration,
+          slot._model.id,
+          slot._model.toExtraBody(modelDuration),
+        );
         if (!isMountedRef.current) return;
 
         // Append to storage history
@@ -2486,6 +2536,7 @@ function ShotModeView({
           url,
           generatedAt: new Date().toISOString(),
           pinned: false,
+          model: slot._model.id,
         };
         const updatedHistory = [...latestShot.video.history, newEntry];
         const newSelectedUrl = latestShot.video.selectedUrl ?? url;
@@ -2514,7 +2565,7 @@ function ShotModeView({
         log({
           category: "user:action",
           action: "video:generate:error",
-          data: { scriptId: script.id, shotId: shot.id, error: errorMsg },
+          data: { scriptId: script.id, shotId: shot.id, error: errorMsg, model: slot._model.id },
         });
         // Replace pending slot with error slot
         setGenerationSlots((prev) =>
@@ -2525,6 +2576,7 @@ function ShotModeView({
                   slotId: sl.slotId,
                   errorMessage: errorMsg,
                   prompt: promptText,
+                  model: slot._model.id,
                 }
               : sl
           )
@@ -2547,6 +2599,7 @@ function ShotModeView({
   }, [
     isGenerating,
     generateCount,
+    selectedVideoModels,
     shot.id,
     shot.prompt,
     shot.duration,
@@ -2561,7 +2614,7 @@ function ShotModeView({
    * Retry a single failed slot.
    */
   const handleRetrySlot = useCallback(
-    async (slotId: string, prompt: string) => {
+    async (slotId: string, prompt: string, model?: string) => {
       const settings = getSettings();
       const apiKey = settings?.poeApiKey;
       let client;
@@ -2578,6 +2631,7 @@ function ShotModeView({
                     errorMessage:
                       err instanceof Error ? err.message : "Failed to create LLM client.",
                     prompt,
+                    model,
                   }
                 : sl
             )
@@ -2591,15 +2645,18 @@ function ShotModeView({
         setGenerationSlots((prev) =>
           prev.map((sl) =>
             sl.slotId === slotId
-              ? { status: "pending" as const, slotId }
+              ? { status: "pending" as const, slotId, model }
               : sl
           )
         );
         setIsGenerating(true);
       }
 
+      const modelDef = VIDEO_MODELS.find((m) => m.id === model);
+
       try {
-        const url = await client.generateVideo(prompt, shot.duration);
+        const retryDuration = modelDef ? closestDuration(shot.duration, modelDef.durations) : shot.duration;
+        const url = await client.generateVideo(prompt, retryDuration, model, modelDef?.toExtraBody(retryDuration));
         if (!isMountedRef.current) return;
 
         const latestScript = videoStorageService.getScript(script.id);
@@ -2611,6 +2668,7 @@ function ShotModeView({
           url,
           generatedAt: new Date().toISOString(),
           pinned: false,
+          model,
         };
         const updatedHistory = [...latestShot.video.history, newEntry];
         const newSelectedUrl = latestShot.video.selectedUrl ?? url;
@@ -2642,6 +2700,7 @@ function ShotModeView({
                   errorMessage:
                     err instanceof Error ? err.message : "Generation failed.",
                   prompt,
+                  model,
                 }
               : sl
           )
@@ -2696,6 +2755,80 @@ function ShotModeView({
         )}
       </div>
 
+      {/* ── Shot title + overflow menu ──────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium truncate">
+          Shot {shotIndex + 1} · {shot.title}
+        </span>
+        <div className="relative shrink-0" ref={menuRef}>
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            aria-label="Shot options"
+            aria-expanded={menuOpen}
+            data-testid={`shot-mode-menu-${shot.id}`}
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+            <span aria-hidden="true">▾</span>
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-md border border-border bg-background shadow-md py-1">
+              <button
+                type="button"
+                onClick={() => {
+                  handleNarrationToggle();
+                }}
+                className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
+                data-testid={`shot-mode-narration-menu-${shot.id}`}
+              >
+                Narration
+                <span
+                  role="switch"
+                  aria-checked={shot.narration.enabled}
+                  className={[
+                    "relative inline-flex h-4 w-7 shrink-0 rounded-full border-2 border-transparent transition-colors",
+                    shot.narration.enabled ? "bg-primary" : "bg-input",
+                  ].join(" ")}
+                >
+                  <span
+                    className={[
+                      "pointer-events-none inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform",
+                      shot.narration.enabled ? "translate-x-3" : "translate-x-0",
+                    ].join(" ")}
+                  />
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleShotSubtitlesToggle();
+                }}
+                className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
+                data-testid={`shot-mode-subtitles-menu-${shot.id}`}
+              >
+                Subtitles
+                <span
+                  role="switch"
+                  aria-checked={shot.subtitles}
+                  className={[
+                    "relative inline-flex h-4 w-7 shrink-0 rounded-full border-2 border-transparent transition-colors",
+                    shot.subtitles ? "bg-primary" : "bg-input",
+                  ].join(" ")}
+                >
+                  <span
+                    className={[
+                      "pointer-events-none inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform",
+                      shot.subtitles ? "translate-x-3" : "translate-x-0",
+                    ].join(" ")}
+                  />
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* ── Prompt section ───────────────────────────────────────────────────── */}
       <div className="space-y-2">
         <label className="block text-xs font-medium text-muted-foreground">
@@ -2745,39 +2878,9 @@ function ShotModeView({
         </div>
       </div>
 
-      {/* ── NARRATION section ─────────────────────────────────────────────────── */}
-      <div className="space-y-2 pt-1">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-            Narration
-          </span>
-          <Info
-            className="h-3 w-3 text-muted-foreground cursor-help"
-            data-testid="narration-info-icon"
-            title="Narration audio will replace the video's native audio track."
-          />
-          <button
-            type="button"
-            role="switch"
-            aria-checked={shot.narration.enabled}
-            onClick={handleNarrationToggle}
-            className={[
-              "relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1",
-              shot.narration.enabled ? "bg-primary" : "bg-input",
-            ].join(" ")}
-            data-testid={`shot-mode-narration-toggle`}
-            aria-label="Toggle narration"
-          >
-            <span
-              className={[
-                "pointer-events-none inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform",
-                shot.narration.enabled ? "translate-x-3" : "translate-x-0",
-              ].join(" ")}
-            />
-          </button>
-        </div>
-
-        {shot.narration.enabled && (
+      {/* ── Narration expanded controls (toggle lives in overflow menu) ──────── */}
+      {shot.narration.enabled && (
+        <div className="space-y-2 pt-1">{/* wrapper kept for spacing */}
           <div className="space-y-2">
             <Textarea
               value={narrationText}
@@ -2822,7 +2925,7 @@ function ShotModeView({
               {shot.narration.audioSource === "elevenlabs" && (
                 <button
                   type="button"
-                  onClick={() => void handleGenerateAudio()}
+                  onClick={() => guardAction(() => void handleGenerateAudio())}
                   disabled={isGeneratingAudio || !shot.narration.text.trim()}
                   className={[
                     "ml-auto flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium border border-border transition-colors",
@@ -2857,7 +2960,7 @@ function ShotModeView({
                 {shot.narration.audioSource === "elevenlabs" && (
                   <button
                     type="button"
-                    onClick={() => void handleGenerateAudio()}
+                    onClick={() => guardAction(() => void handleGenerateAudio())}
                     disabled={isGeneratingAudio || !shot.narration.text.trim()}
                     className="shrink-0 font-medium underline hover:no-underline disabled:opacity-50"
                     data-testid="shot-mode-audio-regenerate-btn"
@@ -2877,36 +2980,8 @@ function ShotModeView({
               />
             )}
           </div>
-        )}
-      </div>
-
-      {/* ── SUBTITLES section ─────────────────────────────────────────────────── */}
-      <div className="space-y-2 pt-1">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-            Subtitles
-          </span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={shot.subtitles}
-            onClick={handleShotSubtitlesToggle}
-            className={[
-              "relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1",
-              shot.subtitles ? "bg-primary" : "bg-input",
-            ].join(" ")}
-            data-testid={`shot-subtitles-toggle-${shot.id}`}
-            aria-label="Toggle subtitles for this shot"
-          >
-            <span
-              className={[
-                "pointer-events-none inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform",
-                shot.subtitles ? "translate-x-3" : "translate-x-0",
-              ].join(" ")}
-            />
-          </button>
         </div>
-      </div>
+      )}
 
       {/* ── DURATION section ──────────────────────────────────────────────────── */}
       <div className="space-y-2 pt-1">
@@ -2957,6 +3032,13 @@ function ShotModeView({
           Generate
         </span>
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Model multi-select */}
+          <ModelMultiSelect
+            models={VIDEO_MODELS}
+            selected={selectedVideoModels}
+            onChange={setSelectedVideoModels}
+          />
+
           {/* Count selector button group */}
           <div
             className="flex items-center rounded-md border border-border overflow-hidden"
@@ -2988,7 +3070,7 @@ function ShotModeView({
           {/* Generate button */}
           <button
             type="button"
-            onClick={() => void handleGenerate()}
+            onClick={() => guardAction(() => void handleGenerate())}
             disabled={isGenerating}
             className={[
               "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
@@ -2997,7 +3079,7 @@ function ShotModeView({
                 : "bg-primary text-primary-foreground hover:bg-primary/90",
             ].join(" ")}
             data-testid="generate-btn"
-            aria-label={`Generate ${generateCount} video${generateCount > 1 ? "s" : ""}`}
+            aria-label={`Generate ${generateCount * selectedVideoModels.length} video${generateCount * selectedVideoModels.length > 1 ? "s" : ""}`}
             aria-busy={isGenerating}
           >
             {isGenerating ? (
@@ -3005,7 +3087,9 @@ function ShotModeView({
             ) : (
               <Sparkles className="h-3.5 w-3.5" />
             )}
-            {isGenerating ? "Generating…" : "Generate"}
+            {isGenerating
+              ? "Generating…"
+              : `Generate${generateCount * selectedVideoModels.length > 1 ? ` (${generateCount * selectedVideoModels.length})` : ""}`}
           </button>
         </div>
       </div>
@@ -3037,31 +3121,28 @@ function ShotModeView({
                   data-testid={`video-history-card-${idx}`}
                 >
                   {/* Video thumbnail */}
-                  <div className="relative aspect-video bg-muted">
-                    <video
-                      src={entry.url}
-                      preload="metadata"
-                      muted
-                      playsInline
-                      className="w-full h-full object-cover"
-                      onMouseEnter={(e) => void (e.currentTarget as HTMLVideoElement).play()}
-                      onMouseLeave={(e) => {
-                        const v = e.currentTarget as HTMLVideoElement;
-                        v.pause();
-                        v.currentTime = 0;
-                      }}
-                    />
-                    {/* Pin overlay */}
-                    {entry.pinned && (
-                      <div className="absolute top-1.5 left-1.5 flex items-center justify-center rounded-full bg-background/80 p-1">
-                        <Pin className="h-3 w-3 text-foreground" />
-                      </div>
-                    )}
-                    {/* Version label */}
-                    <div className="absolute top-1.5 right-1.5 rounded-md bg-background/80 px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
-                      v{idx + 1}
-                    </div>
-                  </div>
+                  <VideoPlayer
+                    src={entry.url}
+                    testIdPrefix={`video-history-${idx}`}
+                    className="bg-muted"
+                    overlays={
+                      <>
+                        {entry.pinned && (
+                          <div className="absolute top-1.5 left-1.5 flex items-center justify-center rounded-full bg-background/80 p-1">
+                            <Pin className="h-3 w-3 text-foreground" />
+                          </div>
+                        )}
+                        <div className="absolute top-1.5 right-1.5 rounded-md bg-background/80 px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
+                          v{idx + 1}
+                        </div>
+                        {entry.model && (
+                          <div className="absolute bottom-1.5 left-1.5 rounded-md bg-background/80 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                            {entry.model}
+                          </div>
+                        )}
+                      </>
+                    }
+                  />
 
                   {/* Card footer */}
                   <div className="px-2 py-1.5 space-y-1.5 bg-background">
@@ -3115,7 +3196,7 @@ function ShotModeView({
                         aria-label={entry.pinned ? "Unpin video" : "Pin video"}
                         aria-pressed={entry.pinned}
                       >
-                        📌
+                        {entry.pinned ? <PinOff className="h-3 w-3" aria-hidden="true" /> : <Pin className="h-3 w-3" aria-hidden="true" />}
                       </button>
 
                       {/* Download button */}
@@ -3126,7 +3207,7 @@ function ShotModeView({
                         data-testid={`video-download-btn-${idx}`}
                         aria-label={`Download video v${idx + 1}`}
                       >
-                        ⬇
+                        <Download className="h-3 w-3" aria-hidden="true" />
                       </button>
 
                       {/* Delete button */}
@@ -3137,7 +3218,7 @@ function ShotModeView({
                         data-testid={`video-delete-btn-${idx}`}
                         aria-label={`Delete video v${idx + 1}`}
                       >
-                        🗑
+                        <Trash2 className="h-3 w-3" aria-hidden="true" />
                       </button>
                     </div>
                   </div>
@@ -3163,6 +3244,11 @@ function ShotModeView({
                       <div className="absolute top-1.5 right-1.5 rounded-md bg-background/80 px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
                         {versionLabel}
                       </div>
+                      {slot.model && (
+                        <div className="absolute bottom-1.5 left-1.5 rounded-md bg-background/80 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                          {slot.model}
+                        </div>
+                      )}
                     </div>
                     {/* Skeleton footer */}
                     <div className="px-2 py-1.5 bg-background space-y-1.5">
@@ -3194,13 +3280,16 @@ function ShotModeView({
                     </p>
                     <button
                       type="button"
-                      onClick={() => void handleRetrySlot(slot.slotId, slot.prompt)}
+                      onClick={() => guardAction(() => void handleRetrySlot(slot.slotId, slot.prompt, slot.model))}
                       className="flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium border border-destructive/50 bg-background text-destructive hover:bg-destructive/10 transition-colors"
                       data-testid={`video-retry-btn-${slotIdx}`}
                       aria-label={`Retry generation for ${versionLabel}`}
                     >
                       Retry
                     </button>
+                    {slot.model && (
+                      <span className="text-[10px] font-medium text-muted-foreground mt-1">{slot.model}</span>
+                    )}
                   </div>
                 </div>
               );
@@ -3230,6 +3319,7 @@ function VideoScriptViewInner() {
   const navigate = useNavigate();
   const location = useLocation();
   const { refreshBalance } = usePoeBalanceContext();
+  const { isModalOpen, guardAction, closeModal, proceedWithPendingAction } = useApiKeyGuard();
 
   /**
    * React Router state passed by the Pinned Videos page (and potentially other
@@ -3356,7 +3446,7 @@ function VideoScriptViewInner() {
         history: [],
       },
       subtitles: script.settings.subtitles,
-      duration: VIDEO_DURATIONS[0],
+      duration: DEFAULT_VIDEO_DURATION,
     };
     const newIndex = script.shots.length;
     const updatedShots = [...script.shots, newShot];
@@ -3712,10 +3802,10 @@ function VideoScriptViewInner() {
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        void handleChatSubmit();
+        guardAction(() => void handleChatSubmit());
       }
     },
-    [handleChatSubmit]
+    [handleChatSubmit, guardAction]
   );
 
   // ─── Loading / redirect state ─────────────────────────────────────────────
@@ -3868,6 +3958,7 @@ function VideoScriptViewInner() {
                           onUpdate={handleShotUpdate}
                           onDelete={handleDeleteShot}
                           onSwitchToShotMode={handleSwitchToShotMode}
+                          guardAction={guardAction}
                         />
                       ))}
                     </SortableContext>
@@ -3908,6 +3999,7 @@ function VideoScriptViewInner() {
                     onUpdate={handleShotUpdate}
                     onNavigate={handleShotNavigate}
                     isMountedRef={isMounted}
+                    guardAction={guardAction}
                   />
                 ) : null}
               </>
@@ -3968,7 +4060,7 @@ function VideoScriptViewInner() {
 
           {/* Message input */}
           <form
-            onSubmit={(e) => void handleChatSubmit(e)}
+            onSubmit={(e) => { e.preventDefault(); guardAction(() => void handleChatSubmit()); }}
             className="px-4 pb-4 pt-2 border-t border-border bg-background shrink-0"
             data-testid="chat-input-form"
           >
@@ -4108,6 +4200,11 @@ function VideoScriptViewInner() {
           </button>
         </div>
       </div>
+
+      {/* API key missing modal */}
+      {isModalOpen && (
+        <ApiKeyMissingModal onClose={closeModal} onProceed={proceedWithPendingAction} />
+      )}
     </div>
   );
 }
