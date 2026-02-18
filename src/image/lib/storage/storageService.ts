@@ -12,6 +12,7 @@ const KEYS = {
   generations: "ai-studio:image-generations",
   items: "ai-studio:image-items",
   settings: "ai-studio:image-settings",
+  selectedModels: "ai-studio:image-selected-models",
 } as const;
 
 function readJSON<T>(key: string): T | null {
@@ -166,6 +167,16 @@ export function saveImageSettings(settings: ImageSettings): void {
   writeJSON(KEYS.settings, settings);
 }
 
+// ─── Selected Models ─────────────────────────────────────────────────────────
+
+export function getSelectedImageModelIds(): string[] | null {
+  return readJSON<string[]>(KEYS.selectedModels);
+}
+
+export function saveSelectedImageModelIds(ids: string[]): void {
+  writeJSON(KEYS.selectedModels, ids);
+}
+
 // ─── Reset ────────────────────────────────────────────────────────────────────
 
 /**
@@ -229,6 +240,9 @@ export const imageStorageService = {
   // Settings
   getImageSettings,
   saveImageSettings,
+  // Selected models
+  getSelectedImageModelIds,
+  saveSelectedImageModelIds,
   // Import / Export
   export: exportImageStorage,
   import: importImageStorage,

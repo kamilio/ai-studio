@@ -5,4 +5,4 @@ export type {
   ImageSettings,
   ImageStorageExport,
 } from "./types";
-export { imageStorageService } from "./storageService";
+export { imageStorageService, getSelectedImageModelIds, saveSelectedImageModelIds } from "./storageService";

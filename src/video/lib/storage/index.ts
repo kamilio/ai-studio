@@ -21,4 +21,6 @@ export {
   updateGlobalTemplate,
   deleteGlobalTemplate,
   resetVideoStorage,
+  getSelectedVideoModelIds,
+  saveSelectedVideoModelIds,
 } from "./storageService";

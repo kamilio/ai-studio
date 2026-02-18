@@ -82,7 +82,7 @@ import { NavMenu } from "@/shared/components/NavMenu";
 import type { MenuItem } from "@/shared/components/NavMenu";
 import { ApiKeyMissingModal } from "@/shared/components/ApiKeyMissingModal";
 import { useApiKeyGuard } from "@/shared/hooks/useApiKeyGuard";
-import { imageStorageService } from "@/image/lib/storage";
+import { imageStorageService, getSelectedImageModelIds, saveSelectedImageModelIds } from "@/image/lib/storage";
 import type { ImageSession, ImageGeneration, ImageItem } from "@/image/lib/storage";
 import { createLLMClient } from "@/shared/lib/llm/factory";
 import { getSettings } from "@/music/lib/storage/storageService";
@@ -835,7 +835,21 @@ export default function SessionView() {
   const [viewerItem, setViewerItem] = useState<ImageItem | null>(null);
 
   // US-028: Selected image models — allows multi-model generation. Default to first model.
-  const [selectedModels, setSelectedModels] = useState<ImageModelDef[]>([IMAGE_MODELS[0]]);
+  const [selectedModels, setSelectedModelsRaw] = useState<ImageModelDef[]>(() => {
+    const savedIds = getSelectedImageModelIds();
+    if (savedIds && savedIds.length > 0) {
+      const resolved = savedIds
+        .map((id) => IMAGE_MODELS.find((m) => m.id === id))
+        .filter((m): m is ImageModelDef => m != null);
+      if (resolved.length > 0) return resolved;
+    }
+    return [IMAGE_MODELS[0]];
+  });
+
+  const setSelectedModels = useCallback((models: ImageModelDef[]) => {
+    setSelectedModelsRaw(models);
+    saveSelectedImageModelIds(models.map((m) => m.id));
+  }, []);
 
   // Remix file upload (US-006): holds the user-selected reference image file,
   // or null when no file is selected or no selected model supports remix.
