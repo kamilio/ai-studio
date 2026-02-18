@@ -74,7 +74,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
-import { ImageIcon, LayoutList, Loader2, Maximize2, Pin, PinOff, Settings, Bug, Download, RefreshCw } from "lucide-react";
+import { ImageIcon, LayoutList, Loader2, Maximize2, Pin, PinOff, Settings, Bug, Download, RefreshCw, Paperclip, X } from "lucide-react";
 import { useElapsedTimer } from "@/shared/hooks/useElapsedTimer";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { Button } from "@/shared/components/ui/button";
@@ -94,7 +94,7 @@ import type { ImageModelDef } from "@/image/lib/imageModels";
 import { ModelMultiSelect } from "@/image/components/ModelMultiSelect";
 import { usePoeBalanceContext } from "@/shared/context/PoeBalanceContext";
 import { FullscreenImageViewer } from "@/image/components/FullscreenImageViewer";
-import { FileDropzone } from "@/shared/components/FileDropzone";
+// FileDropzone replaced with inline drop-zone on the textarea
 
 // ─── Download helper (US-023) ──────────────────────────────────────────────
 
@@ -162,7 +162,7 @@ const IMAGE_NAV_ITEMS: MenuItem[] = [
 
 // ─── TopBar ────────────────────────────────────────────────────────────────
 
-function TopBar({ sessionTitle }: { sessionTitle?: string }) {
+function TopBar({ sessionTitle, onNewSession }: { sessionTitle?: string; onNewSession?: () => void }) {
   const { handleReportBug } = useReportBug();
   const { balance } = usePoeBalanceContext();
   return (
@@ -216,6 +216,16 @@ function TopBar({ sessionTitle }: { sessionTitle?: string }) {
             {balance}
           </span>
         )}
+        {onNewSession && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onNewSession}
+            data-testid="new-session-btn"
+          >
+            New Session
+          </Button>
+        )}
         <NavMenu items={IMAGE_NAV_ITEMS} onReportBug={handleReportBug} />
       </div>
     </header>
@@ -263,15 +273,14 @@ function groupItemsByStep(
  *  Clicking opens the full image in a new browser tab (US-017).
  *  Shows a pin indicator when the item is pinned (US-024).
  */
-function ThumbnailImage({ item }: { item: ImageItem }) {
+function ThumbnailImage({ item, onOpenFullscreen }: { item: ImageItem; onOpenFullscreen?: (item: ImageItem) => void }) {
   return (
-    <a
-      href={item.url}
-      target="_blank"
-      rel="noopener noreferrer"
+    <button
+      type="button"
+      onClick={() => onOpenFullscreen?.(item)}
       aria-label="View full image"
       data-testid="thumbnail-link"
-      className="relative block shrink-0"
+      className="relative block shrink-0 cursor-zoom-in"
       style={{ width: 64, height: 64 }}
     >
       <img
@@ -289,7 +298,7 @@ function ThumbnailImage({ item }: { item: ImageItem }) {
           <Pin className="h-2.5 w-2.5 text-primary" aria-hidden="true" />
         </span>
       )}
-    </a>
+    </button>
   );
 }
 
@@ -298,13 +307,14 @@ function ThumbnailImage({ item }: { item: ImageItem }) {
 interface ThumbnailPanelProps {
   generations: ImageGeneration[];
   items: ImageItem[];
+  onOpenFullscreen?: (item: ImageItem) => void;
 }
 
 /**
  * Desktop right panel: vertically scrollable list of all thumbnails grouped
  * by stepId descending.
  */
-function ThumbnailPanel({ generations, items }: ThumbnailPanelProps) {
+function ThumbnailPanel({ generations, items, onOpenFullscreen }: ThumbnailPanelProps) {
   const groups = groupItemsByStep(generations, items);
 
   if (groups.length === 0) {
@@ -322,7 +332,7 @@ function ThumbnailPanel({ generations, items }: ThumbnailPanelProps) {
           <p className="text-xs text-muted-foreground mb-1">Step {group.stepId}</p>
           <div className="flex flex-col gap-1">
             {group.items.map((item) => (
-              <ThumbnailImage key={item.id} item={item} />
+              <ThumbnailImage key={item.id} item={item} onOpenFullscreen={onOpenFullscreen} />
             ))}
           </div>
         </div>
@@ -337,7 +347,7 @@ function ThumbnailPanel({ generations, items }: ThumbnailPanelProps) {
  * Mobile horizontal strip: all thumbnails across all steps rendered in a
  * single horizontal row, ordered newest step first.
  */
-function ThumbnailStrip({ generations, items }: ThumbnailPanelProps) {
+function ThumbnailStrip({ generations, items, onOpenFullscreen }: ThumbnailPanelProps) {
   const groups = groupItemsByStep(generations, items);
 
   if (groups.length === 0) {
@@ -352,7 +362,7 @@ function ThumbnailStrip({ generations, items }: ThumbnailPanelProps) {
     <>
       {groups.map((group) =>
         group.items.map((item) => (
-          <ThumbnailImage key={item.id} item={item} />
+          <ThumbnailImage key={item.id} item={item} onOpenFullscreen={onOpenFullscreen} />
         ))
       )}
     </>
@@ -854,6 +864,8 @@ export default function SessionView() {
   // Remix file upload (US-006): holds the user-selected reference image file,
   // or null when no file is selected or no selected model supports remix.
   const [remixFile, setRemixFile] = useState<File | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Clear remixFile whenever selectedModels changes to a set where no model supports remix.
   useEffect(() => {
@@ -1285,7 +1297,7 @@ export default function SessionView() {
   return (
     <>
     <div className="flex flex-col h-screen" data-testid="session-view">
-      <TopBar sessionTitle={data.session.title} />
+      <TopBar sessionTitle={data.session.title} onNewSession={handleNewSession} />
 
       {/*
        * Body: three structural regions.
@@ -1317,7 +1329,7 @@ export default function SessionView() {
             aria-label="Image thumbnails"
             data-testid="thumbnail-panel"
           >
-            <ThumbnailPanel generations={data.generations} items={data.items} />
+            <ThumbnailPanel generations={data.generations} items={data.items} onOpenFullscreen={handleOpenFullscreen} />
           </aside>
         </div>
 
@@ -1327,7 +1339,7 @@ export default function SessionView() {
           aria-label="Image thumbnails"
           data-testid="thumbnail-strip"
         >
-          <ThumbnailStrip generations={data.generations} items={data.items} />
+          <ThumbnailStrip generations={data.generations} items={data.items} onOpenFullscreen={handleOpenFullscreen} />
         </div>
 
         {/* ── Bottom input bar (US-018) ──────────────────────────────── */}
@@ -1335,69 +1347,121 @@ export default function SessionView() {
           className="border-t bg-background px-4 py-3 shrink-0"
           data-testid="bottom-bar"
         >
-          <div className="flex flex-col gap-2 max-w-3xl mx-auto">
-            {/* US-028: Model multi-select */}
-            <div className="flex items-center gap-2">
-              <span
-                className="text-xs text-muted-foreground whitespace-nowrap shrink-0"
-              >
-                Image model
-              </span>
-              <ModelMultiSelect
-                models={IMAGE_MODELS}
-                selected={selectedModels}
-                onChange={setSelectedModels}
-                data-testid="model-picker"
-              />
-            </div>
-            {/* Remix image upload (US-006 / US-029): shown when any selected model supports remix */}
-            {selectedModels.some((m) => m.supportsRemix) && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                  Reference image
-                </span>
-                <FileDropzone
-                  file={remixFile}
-                  onFileChange={setRemixFile}
-                  accept="image/jpeg,image/png"
-                  label="Drag &amp; drop or click to attach"
-                  testId="remix-image-upload"
-                  disabled={isGenerating}
-                />
-              </div>
-            )}
-          </div>
-          <div className="flex gap-3 items-end max-w-3xl mx-auto mt-2">
-            <Textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Describe the image you want to generate…"
-              className="resize-none min-h-[72px] text-sm flex-1"
-              aria-label="Image prompt"
-              data-testid="prompt-input"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                  e.preventDefault();
-                  void handleGenerate();
+          <div className="flex gap-3 items-end">
+            {/* Textarea with integrated model selector, paperclip, and drop zone */}
+            <div
+              className={[
+                "relative flex-1 rounded-md border transition-colors",
+                isDraggingOver
+                  ? "border-primary bg-primary/5"
+                  : "border-input",
+              ].join(" ")}
+              onDragOver={(e) => {
+                if (isGenerating || !selectedModels.some((m) => m.supportsRemix)) return;
+                e.preventDefault();
+                setIsDraggingOver(true);
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setIsDraggingOver(false);
                 }
               }}
-            />
-            <div className="flex flex-col gap-2 shrink-0">
-              <Button
-                onClick={() => void handleGenerate()}
-                disabled={isGenerating || !prompt.trim()}
-                data-testid="generate-btn"
-              >
-                {isGenerating ? "Generating…" : "Generate"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleNewSession}
-                data-testid="new-session-btn"
-              >
-                New Session
-              </Button>
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDraggingOver(false);
+                if (isGenerating || !selectedModels.some((m) => m.supportsRemix)) return;
+                const dropped = e.dataTransfer.files?.[0] ?? null;
+                if (dropped) setRemixFile(dropped);
+              }}
+              data-testid="prompt-drop-zone"
+            >
+              {/* Attached file chip */}
+              {remixFile && (
+                <div className="flex items-center gap-1.5 px-3 pt-2">
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                    data-testid="remix-image-upload-filename"
+                  >
+                    <Paperclip className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    <span className="truncate max-w-[200px]">{remixFile.name}</span>
+                    <button
+                      type="button"
+                      aria-label="Remove attachment"
+                      data-testid="remix-image-upload-remove"
+                      onClick={() => setRemixFile(null)}
+                      className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20 transition-colors"
+                    >
+                      <X className="h-2.5 w-2.5" aria-hidden="true" />
+                    </button>
+                  </span>
+                </div>
+              )}
+
+              <Textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="Describe the image you want to generate…"
+                className="resize-none min-h-[72px] text-sm border-0 shadow-none focus-visible:ring-0"
+                aria-label="Image prompt"
+                data-testid="prompt-input"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    void handleGenerate();
+                  }
+                }}
+              />
+
+              {/* Bottom row: model selector, paperclip, shortcut hint */}
+              <div className="flex items-center gap-2 px-3 pb-2">
+                <ModelMultiSelect
+                  models={IMAGE_MODELS}
+                  selected={selectedModels}
+                  onChange={setSelectedModels}
+                  data-testid="model-picker"
+                />
+                {selectedModels.some((m) => m.supportsRemix) && (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png"
+                      onChange={(e) => {
+                        const picked = e.target.files?.[0] ?? null;
+                        setRemixFile(picked);
+                        e.target.value = "";
+                      }}
+                      className="sr-only"
+                      tabIndex={-1}
+                      aria-hidden="true"
+                      data-testid="remix-image-upload-input"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Attach reference image"
+                      data-testid="remix-image-upload"
+                      disabled={isGenerating}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                    >
+                      <Paperclip className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </>
+                )}
+                <span className="ml-auto text-xs text-muted-foreground">
+                  ⌘ + Enter to generate
+                </span>
+              </div>
             </div>
+
+            <Button
+              onClick={() => void handleGenerate()}
+              disabled={isGenerating || !prompt.trim()}
+              data-testid="generate-btn"
+              className="shrink-0 self-end"
+            >
+              {isGenerating ? "Generating…" : "Generate"}
+            </Button>
           </div>
         </div>
       </div>
