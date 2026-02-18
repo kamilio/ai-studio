@@ -34,14 +34,14 @@ export const VIDEO_MODELS: VideoModelDef[] = [
     label: "Veo 3.1",
     durations: [4, 6, 8],
     defaultDuration: 8,
-    toExtraBody: (d) => ({ duration: `${d}s`, aspect: "16:9", resolution: "1080p" }),
+    toExtraBody: (d) => ({ size: "1792x1024", duration: String(d) }),
   },
   {
     id: "Veo-3.1-Fast",
     label: "Veo 3.1 Fast",
     durations: [4, 6, 8],
     defaultDuration: 8,
-    toExtraBody: (d) => ({ duration: `${d}s`, aspect: "16:9", resolution: "1080p" }),
+    toExtraBody: (d) => ({ size: "1792x1024", duration: String(d) }),
   },
   {
     id: "Runway-Gen-4.5",
