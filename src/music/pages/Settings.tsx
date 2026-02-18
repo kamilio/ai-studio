@@ -404,7 +404,7 @@ export default function Settings() {
               type="file"
               accept=".json,application/json"
               onChange={handleFileChange}
-              className="hidden"
+              className="sr-only"
               aria-label="Import JSON file"
             />
           </div>
